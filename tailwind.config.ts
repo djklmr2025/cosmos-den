@@ -58,10 +58,27 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+      fontFamily: {
+        sans: ["'Chakra Petch'", "Inter", "system-ui", "sans-serif"],
+        display: ["'Orbitron'", "'Chakra Petch'", "Inter", "sans-serif"],
+        mono: ["'Space Mono'", "SFMono-Regular", "Menlo", "monospace"],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        neon: "0 0 22px rgba(45, 255, 230, 0.55)",
+        "neon-sm": "0 0 14px rgba(45, 255, 230, 0.4)",
+        "neon-inset": "inset 0 0 18px rgba(45, 255, 230, 0.35)",
+      },
+      dropShadow: {
+        glow: "0 0 12px rgba(45, 255, 230, 0.6)",
+      },
+      backgroundImage: {
+        "grid-glow":
+          "linear-gradient(0deg, transparent 24%, rgba(45, 255, 230, 0.08) 25%, rgba(45, 255, 230, 0.08) 26%, transparent 27%), linear-gradient(90deg, transparent 24%, rgba(45, 255, 230, 0.08) 25%, rgba(45, 255, 230, 0.08) 26%, transparent 27%)",
       },
       keyframes: {
         "accordion-down": {
@@ -80,10 +97,30 @@ export default {
             height: "0",
           },
         },
+        "pulse-glow": {
+          "0%, 100%": {
+            opacity: "0.7",
+            boxShadow: "0 0 14px rgba(45, 255, 230, 0.45)",
+          },
+          "50%": {
+            opacity: "1",
+            boxShadow: "0 0 20px rgba(45, 255, 230, 0.7)",
+          },
+        },
+        float: {
+          "0%, 100%": {
+            transform: "translateY(0)",
+          },
+          "50%": {
+            transform: "translateY(-6px)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-glow": "pulse-glow 2.4s ease-in-out infinite",
+        float: "float 5.6s ease-in-out infinite",
       },
     },
   },
