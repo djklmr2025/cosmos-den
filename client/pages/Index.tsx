@@ -228,7 +228,7 @@ export default function Index() {
               transition={{ duration: 0.9, ease: "easeOut", delay: 0.2 }}
               className="grid gap-6 sm:grid-cols-3"
             >
-              <div className="rounded-3xl border border-white/5 bg-black/30 p-6 shadow-neon/40">
+              <div className="rounded-3xl border border-white/5 bg-black/30 p-6 shadow-neon">
                 <p className="text-xs uppercase tracking-[0.5em] text-muted-foreground">
                   Latencia
                 </p>
@@ -236,7 +236,7 @@ export default function Index() {
                   {latency === null ? "---" : `${latency}ms`}
                 </p>
               </div>
-              <div className="rounded-3xl border border-white/5 bg-black/30 p-6 shadow-neon/40">
+              <div className="rounded-3xl border border-white/5 bg-black/30 p-6 shadow-neon">
                 <p className="text-xs uppercase tracking-[0.5em] text-muted-foreground">
                   Estado actual
                 </p>
@@ -251,7 +251,7 @@ export default function Index() {
                   {meta.label}
                 </p>
               </div>
-              <div className="rounded-3xl border border-white/5 bg-black/30 p-6 shadow-neon/40">
+              <div className="rounded-3xl border border-white/5 bg-black/30 p-6 shadow-neon">
                 <p className="text-xs uppercase tracking-[0.5em] text-muted-foreground">
                   Protocolos
                 </p>
@@ -262,7 +262,7 @@ export default function Index() {
 
           <section
             id="diagnostico"
-            className="w-full max-w-xl space-y-8 rounded-[32px] border border-primary/40 bg-black/40 p-8 shadow-neon/70 backdrop-blur-xl"
+            className="w-full max-w-xl space-y-8 rounded-[32px] border border-primary/40 bg-black/40 p-8 shadow-neon backdrop-blur-xl"
           >
             <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
@@ -347,7 +347,7 @@ export default function Index() {
                     <li
                       key={entry.id}
                       className={cn(
-                        "flex items-start gap-3 rounded-2xl border border-white/5 bg-white/5/70 px-4 py-3",
+                        "flex items-start gap-3 rounded-2xl border border-white/5 bg-white/10 px-4 py-3",
                         entry.tone === "success" && "border-primary/50 bg-primary/10",
                         entry.tone === "error" && "border-destructive/50 bg-destructive/10",
                       )}
@@ -387,7 +387,7 @@ export default function Index() {
               {featureCards.map(({ title, description, icon: Icon }) => (
                 <div
                   key={title}
-                  className="group relative overflow-hidden rounded-3xl border border-white/5 bg-black/40 p-8 shadow-neon/40 transition hover:border-primary/50 hover:shadow-neon"
+                  className="group relative overflow-hidden rounded-3xl border border-white/5 bg-black/40 p-8 shadow-neon transition hover:border-primary/50 hover:shadow-neon"
                 >
                   <div className="absolute inset-0 bg-primary/10 opacity-0 blur-3xl transition duration-500 group-hover:opacity-100" />
                   <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/40 bg-primary/10 text-primary">
