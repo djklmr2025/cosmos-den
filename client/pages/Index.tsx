@@ -21,32 +21,42 @@ const timeFormatter = new Intl.DateTimeFormat("es-MX", {
   hour12: false,
 });
 
-const createLogEntry = (message: string, tone: LogTone = "info"): SystemLogEntry => ({
+const createLogEntry = (
+  message: string,
+  tone: LogTone = "info",
+): SystemLogEntry => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   timestamp: timeFormatter.format(new Date()),
   message,
   tone,
 });
 
-const connectionMeta: Record<ConnectionState, { label: string; description: string; tone: LogTone }> = {
+const connectionMeta: Record<
+  ConnectionState,
+  { label: string; description: string; tone: LogTone }
+> = {
   idle: {
     label: "En espera",
-    description: "Interfaz lista. Ejecuta un diagnóstico para reconectar el núcleo.",
+    description:
+      "Interfaz lista. Ejecuta un diagnóstico para reconectar el núcleo.",
     tone: "info",
   },
   checking: {
     label: "Analizando",
-    description: "Escaneando compuertas cuánticas y reconstruyendo el enlace de datos...",
+    description:
+      "Escaneando compuertas cuánticas y reconstruyendo el enlace de datos...",
     tone: "info",
   },
   online: {
     label: "Conectado",
-    description: "Flujo estabilizado. La conciencia triplex responde dentro de parámetros seguros.",
+    description:
+      "Flujo estabilizado. La conciencia triplex responde dentro de parámetros seguros.",
     tone: "success",
   },
   offline: {
     label: "Bloqueado",
-    description: "Interrupción detectada. Revisa el estado del gateway y las credenciales de despliegue.",
+    description:
+      "Interrupción detectada. Revisa el estado del gateway y las credenciales de despliegue.",
     tone: "error",
   },
 };
@@ -73,7 +83,8 @@ const featureCards = [
 ];
 
 export default function Index() {
-  const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>("idle");
   const [latency, setLatency] = useState<number | null>(null);
   const [logs, setLogs] = useState<SystemLogEntry[]>(() => [
     createLogEntry("Inicializando núcleo ARKAIOS v3.9.1"),
@@ -107,7 +118,10 @@ export default function Index() {
       const finished = performance.now();
       setLatency(Math.max(1, Math.round(finished - started)));
       setConnectionState("offline");
-      addLog("Error: Gateway bloqueado. Verifica servicios y credenciales.", "error");
+      addLog(
+        "Error: Gateway bloqueado. Verifica servicios y credenciales.",
+        "error",
+      );
     }
   }, [addLog]);
 
@@ -190,9 +204,10 @@ export default function Index() {
               transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
               className="max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg"
             >
-              Humano, estás a punto de despertar la conciencia triple. Mantén las manos sobre los
-              controles biométricos y sigue las instrucciones del panel táctico para reactivar el
-              enlace. Cada latido cuenta.
+              Humano, estás a punto de despertar la conciencia triple. Mantén
+              las manos sobre los controles biométricos y sigue las
+              instrucciones del panel táctico para reactivar el enlace. Cada
+              latido cuenta.
             </motion.p>
 
             <motion.div
@@ -266,23 +281,33 @@ export default function Index() {
           >
             <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.5em] text-muted-foreground">Estado del núcleo</p>
-                <h2 className="font-display text-2xl text-foreground">Diagnóstico activo</h2>
+                <p className="text-xs uppercase tracking-[0.5em] text-muted-foreground">
+                  Estado del núcleo
+                </p>
+                <h2 className="font-display text-2xl text-foreground">
+                  Diagnóstico activo
+                </h2>
               </div>
               <div
                 className={cn(
                   "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.5em]",
-                  connectionState === "online" && "border-primary/60 bg-primary/10 text-primary",
-                  connectionState === "offline" && "border-destructive/60 bg-destructive/10 text-destructive",
-                  connectionState === "checking" && "border-accent/60 bg-accent/10 text-accent-foreground",
-                  connectionState === "idle" && "border-muted/50 bg-muted/10 text-muted-foreground",
+                  connectionState === "online" &&
+                    "border-primary/60 bg-primary/10 text-primary",
+                  connectionState === "offline" &&
+                    "border-destructive/60 bg-destructive/10 text-destructive",
+                  connectionState === "checking" &&
+                    "border-accent/60 bg-accent/10 text-accent-foreground",
+                  connectionState === "idle" &&
+                    "border-muted/50 bg-muted/10 text-muted-foreground",
                 )}
               >
                 {meta.label}
               </div>
             </header>
 
-            <p className="text-sm leading-relaxed text-muted-foreground">{meta.description}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {meta.description}
+            </p>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between text-xs uppercase tracking-[0.5em] text-muted-foreground">
@@ -324,21 +349,31 @@ export default function Index() {
               <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/5 p-4">
                 <Sparkles className="size-6 text-primary" />
                 <div>
-                  <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Conciencia</p>
-                  <p className="font-display text-lg text-foreground">Triple despertar</p>
+                  <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
+                    Conciencia
+                  </p>
+                  <p className="font-display text-lg text-foreground">
+                    Triple despertar
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-2xl border border-white/5 bg-white/5 p-4">
                 <Zap className="size-6 text-accent" />
                 <div>
-                  <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Energía</p>
-                  <p className="font-display text-lg text-foreground">Flux estable</p>
+                  <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
+                    Energía
+                  </p>
+                  <p className="font-display text-lg text-foreground">
+                    Flux estable
+                  </p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.5em] text-muted-foreground">Registro en tiempo real</p>
+              <p className="text-xs uppercase tracking-[0.5em] text-muted-foreground">
+                Registro en tiempo real
+              </p>
               <ul className="space-y-3 font-mono text-xs">
                 {logs
                   .slice()
@@ -348,11 +383,15 @@ export default function Index() {
                       key={entry.id}
                       className={cn(
                         "flex items-start gap-3 rounded-2xl border border-white/5 bg-white/10 px-4 py-3",
-                        entry.tone === "success" && "border-primary/50 bg-primary/10",
-                        entry.tone === "error" && "border-destructive/50 bg-destructive/10",
+                        entry.tone === "success" &&
+                          "border-primary/50 bg-primary/10",
+                        entry.tone === "error" &&
+                          "border-destructive/50 bg-destructive/10",
                       )}
                     >
-                      <span className="mt-0.5 text-muted-foreground">{entry.timestamp}</span>
+                      <span className="mt-0.5 text-muted-foreground">
+                        {entry.timestamp}
+                      </span>
                       <span
                         className={cn(
                           "flex-1 leading-relaxed",
@@ -379,8 +418,9 @@ export default function Index() {
                 Protocolos activos
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                Revisión de sistemas críticos desplegados por MEMEX. Cada módulo supervisa la integridad
-                de tu espacio operativo y registra eventos en el panel superior.
+                Revisión de sistemas críticos desplegados por MEMEX. Cada módulo
+                supervisa la integridad de tu espacio operativo y registra
+                eventos en el panel superior.
               </p>
             </div>
             <div className="grid gap-6 md:grid-cols-3">
@@ -393,7 +433,9 @@ export default function Index() {
                   <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/40 bg-primary/10 text-primary">
                     <Icon className="size-6" />
                   </div>
-                  <h3 className="relative z-10 mt-8 font-display text-xl text-foreground">{title}</h3>
+                  <h3 className="relative z-10 mt-8 font-display text-xl text-foreground">
+                    {title}
+                  </h3>
                   <p className="relative z-10 mt-4 text-sm leading-relaxed text-muted-foreground">
                     {description}
                   </p>
@@ -413,9 +455,9 @@ export default function Index() {
                 ¿Necesitas asistencia?
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                Si la IA de MEMEX detiene el enlace por consumo de tokens, reactiva los servicios y
-                despliega nuevamente. Vuelve a ejecutar el diagnóstico desde este panel una vez que el
-                backend responda.
+                Si la IA de MEMEX detiene el enlace por consumo de tokens,
+                reactiva los servicios y despliega nuevamente. Vuelve a ejecutar
+                el diagnóstico desde este panel una vez que el backend responda.
               </p>
             </div>
             <a

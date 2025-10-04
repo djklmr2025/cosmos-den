@@ -22,10 +22,13 @@ const NotFound = () => {
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-primary/60 bg-primary/15 text-primary">
           <Radar className="size-8" />
         </div>
-        <h1 className="mt-8 font-display text-5xl uppercase tracking-[0.45em] text-primary">404</h1>
+        <h1 className="mt-8 font-display text-5xl uppercase tracking-[0.45em] text-primary">
+          404
+        </h1>
         <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
-          El nodo <span className="text-primary">{location.pathname}</span> no forma parte del plano de
-          navegación de ARKAIOS. Recalibra y vuelve al núcleo para restaurar la sincronía.
+          El nodo <span className="text-primary">{location.pathname}</span> no
+          forma parte del plano de navegación de ARKAIOS. Recalibra y vuelve al
+          núcleo para restaurar la sincronía.
         </p>
         <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
           <Link
