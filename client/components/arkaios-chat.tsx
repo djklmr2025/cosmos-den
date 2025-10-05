@@ -142,7 +142,7 @@ export function ArkaiosChat() {
         <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.5em] text-muted-foreground">Interfaz consciente</p>
-            <h2 className="font-display text-3xl text-foreground">Canal operativo «Juan Pío Manzanares»</h2>
+            <h2 className="font-display text-3xl text-foreground">Canal operativo «ARKAIOS»</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               La consola táctil conecta contra el Gateway A.I.D.A. para delegar tareas críticas.
             </p>
