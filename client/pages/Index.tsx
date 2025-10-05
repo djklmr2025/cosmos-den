@@ -1,3 +1,4 @@
+import { ArkaiosChat } from "@/components/arkaios-chat";
 import { useCallback, useEffect, useState } from "react";
 import { DemoResponse } from "@shared/api";
 import { motion } from "framer-motion";
