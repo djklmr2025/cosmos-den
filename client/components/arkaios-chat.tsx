@@ -161,7 +161,7 @@ export function ArkaiosChat() {
             <li
               key={message.id}
               className={cn(
-                "flex flex-col gap-2 rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-neon/40",
+                "flex flex-col gap-2 rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-neon",
                 message.role === "user"
                   ? "ml-auto max-w-[82%] border-primary/50 bg-primary/10 text-primary"
                   : "max-w-[82%] border-white/10 bg-white/5 text-foreground",
