@@ -445,6 +445,12 @@ export default function Index() {
           </div>
         </section>
 
+        <div className="relative z-10 border-t border-white/5 bg-black/30 py-20 backdrop-blur-xl">
+          <div className="container mx-auto px-6">
+            <ArkaiosChat />
+          </div>
+        </div>
+
         <section
           id="soporte"
           className="relative z-10 border-t border-white/5 bg-black/20 py-16 backdrop-blur-xl"
