@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type ConnectionState = "idle" | "connecting" | "online" | "error";
+
 interface ChatAttachment {
   id: string;
   name: string;
@@ -27,9 +29,9 @@ interface ChatAttachment {
   size: number;
   preview?: string;
   textContent?: string | null;
+  downloadUrl?: string | null;
+  mime?: string;
 }
-
-type ConnectionState = "idle" | "connecting" | "online" | "error";
 
 type ChatMessage = {
   id: string;
@@ -54,11 +56,26 @@ declare global {
         txt2img?: (prompt: string) => Promise<HTMLImageElement>;
       };
       fs?: {
-        readdir?: (path: string) => Promise<unknown>;
+        writeFile?: (path: string, content: string | Blob, options?: Record<string, unknown>) => Promise<void>;
+        getPublicURL?: (path: string) => Promise<string>;
       };
     };
   }
 }
+
+const MIME_MAP: Record<string, string> = {
+  txt: "text/plain;charset=utf-8",
+  md: "text/markdown;charset=utf-8",
+  json: "application/json;charset=utf-8",
+  csv: "text/csv;charset=utf-8",
+  html: "text/html;charset=utf-8",
+  js: "text/javascript;charset=utf-8",
+  ts: "text/plain;charset=utf-8",
+  jsx: "text/plain;charset=utf-8",
+  tsx: "text/plain;charset=utf-8",
+  css: "text/css;charset=utf-8",
+  svg: "image/svg+xml;charset=utf-8",
+};
 
 const defaultGateway = "https://arkaios-gateway-open.onrender.com/aida/gateway";
 const defaultKey = "KaOQ1ZQ4gyF5bkgxkiwPEFgkrUMW31ZEwVhOITkLRO5jaImetmUlYJegOdwG";
@@ -87,8 +104,22 @@ const toneClasses: Record<string, string> = {
 };
 
 const MAX_TEXT_ATTACHMENT_CHARS = 6000;
+const PREVIEW_LIMIT = 400;
 
 const generateId = () => crypto.randomUUID();
+
+const extractCodeBlock = (raw: string) => {
+  const match = raw.match(/```[a-zA-Z0-9_-]*\n([\s\S]*?)```/);
+  return match ? match[1].trim() : null;
+};
+
+const guessMimeFromFilename = (filename: string) => {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_MAP[ext] ?? "text/plain;charset=utf-8";
+};
+
+const truncatePreview = (text: string) =>
+  text.length > PREVIEW_LIMIT ? `${text.slice(0, PREVIEW_LIMIT)}…` : text;
 
 export function ArkaiosChat() {
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
@@ -96,7 +127,7 @@ export function ArkaiosChat() {
       id: generateId(),
       role: "assistant",
       content:
-        "👋 Bienvenido. ARKAIOS opera con GPT-4 a través del núcleo Puter.js. Puedes adjuntar archivos, imágenes o comandos especiales. Si lo deseas, sincronizaremos cada respuesta con A.I.D.A. para respaldo táctico.",
+        "👋 Bienvenido. ARKAIOS opera con GPT-4 mediante Puter.js y puede adjuntar archivos, imágenes o comandos especiales. Si lo indicas, sincronizaremos la respuesta con A.I.D.A. para respaldo estratégico.",
       timestamp: Date.now(),
     },
   ]);
@@ -112,6 +143,8 @@ export function ArkaiosChat() {
   const listRef = useRef<HTMLUListElement>(null);
   const historyRef = useRef<ConversationRecord[]>([]);
   const puterRef = useRef<typeof window.puter>();
+  const lastAIResponseRef = useRef<string>("");
+  const objectUrlsRef = useRef<string[]>([]);
 
   const isGatewayConfigured = useMemo(() => Boolean(gatewayUrl && gatewayKey), []);
 
@@ -154,6 +187,48 @@ export function ArkaiosChat() {
       reader.readAsText(file);
     });
 
+  const registerObjectUrl = (url: string) => {
+    objectUrlsRef.current.push(url);
+    return url;
+  };
+
+  const createDownloadAttachment = (filename: string, content: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = registerObjectUrl(URL.createObjectURL(blob));
+    return {
+      id: generateId(),
+      name: filename,
+      type: mime,
+      size: blob.size,
+      downloadUrl: url,
+      textContent: truncatePreview(content),
+      mime,
+    } satisfies ChatAttachment;
+  };
+
+  const saveToPuterFs = async (path: string, content: string, mime: string) => {
+    try {
+      if (!puterRef.current?.fs?.writeFile) {
+        return { ok: false as const, reason: "no_puter_fs" };
+      }
+
+      await puterRef.current.fs.writeFile(path, content, { mimeType: mime });
+      let publicURL: string | null = null;
+
+      if (puterRef.current.fs.getPublicURL) {
+        try {
+          publicURL = await puterRef.current.fs.getPublicURL(path);
+        } catch (error) {
+          console.warn("A.I.D.A. Puter public URL unavailable", error);
+        }
+      }
+
+      return { ok: true as const, path, publicURL };
+    } catch (error) {
+      return { ok: false as const, reason: (error as Error).message };
+    }
+  };
+
   const processAttachments = async (files: File[]) => {
     const attachmentSummaries: string[] = [];
     const attachments: ChatAttachment[] = [];
@@ -162,7 +237,9 @@ export function ArkaiosChat() {
       try {
         if (file.type.startsWith("image/")) {
           const dataUrl = await readFileAsDataURL(file);
-          attachmentSummaries.push(`Imagen ${file.name} (${file.type}, ${Math.round(file.size / 1024)}KB): ${dataUrl}`);
+          attachmentSummaries.push(
+            `Imagen ${file.name} (${file.type}, ${Math.round(file.size / 1024)}KB): ${dataUrl}`,
+          );
           attachments.push({
             id: generateId(),
             name: file.name,
@@ -183,10 +260,12 @@ export function ArkaiosChat() {
             type: file.type,
             size: file.size,
             preview: undefined,
-            textContent: trimmed,
+            textContent: truncatePreview(trimmed),
           });
         } else {
-          attachmentSummaries.push(`Archivo ${file.name} (${file.type || "tipo desconocido"}, ${Math.round(file.size / 1024)}KB)`);
+          attachmentSummaries.push(
+            `Archivo ${file.name} (${file.type || "tipo desconocido"}, ${Math.round(file.size / 1024)}KB)`,
+          );
           attachments.push({
             id: generateId(),
             name: file.name,
@@ -220,7 +299,7 @@ export function ArkaiosChat() {
         setPuterStatus("online");
         pushMessage({
           role: "system",
-          content: "✅ Núcleo Puter.js cargado correctamente. GPT-4 listo para recibir instrucciones.",
+          content: "✅ Núcleo Puter.js cargado correctamente. GPT-4 disponible.",
         });
         return;
       }
@@ -231,7 +310,7 @@ export function ArkaiosChat() {
     setPuterStatus("error");
     pushMessage({
       role: "system",
-      content: "🚨 No fue posible inicializar Puter.js. Verifica tu conexión a internet o vuelve a recargar la interfaz.",
+      content: "🚨 No fue posible inicializar Puter.js. Verifica tu conexión o recarga la interfaz.",
       error: true,
     });
     throw new Error("Puter.js no disponible");
@@ -266,12 +345,18 @@ export function ArkaiosChat() {
   };
 
   const delegateToAida = async (prompt: string) => {
+    if (!syncWithAida) {
+      setGatewayStatus("idle");
+      return;
+    }
+
     if (!isGatewayConfigured) {
       pushMessage({
         role: "system",
         content: "⚠️ Gateway no configurado (define VITE_ARKAIOS_GATEWAY y VITE_ARKAIOS_KEY). No se sincronizó con A.I.D.A.",
         error: true,
       });
+      setGatewayStatus("error");
       return;
     }
 
@@ -321,21 +406,182 @@ export function ArkaiosChat() {
     }
   };
 
+  const handleFileCommand = async (rawCommand: string) => {
+    const command = rawCommand.trim();
+
+    if (command.startsWith("/make ")) {
+      const makeMatch = rawCommand.match(/^\/make\s+([^\s]+)\s*([\s\S]*)$/i);
+      const filename = makeMatch?.[1];
+      const remainder = makeMatch?.[2] ?? "";
+      const contentBlock = extractCodeBlock(rawCommand);
+      const content = contentBlock ?? remainder.trim();
+
+      if (!filename) {
+        pushMessage({
+          role: "system",
+          content: "❌ Uso correcto: /make nombre.ext seguido de contenido o bloque ```...```",
+          error: true,
+        });
+        return true;
+      }
+
+      if (!content) {
+        pushMessage({
+          role: "system",
+          content: "❌ Agrega contenido después del nombre o dentro de ```...```",
+          error: true,
+        });
+        return true;
+      }
+
+      const mime = guessMimeFromFilename(filename);
+      const attachment = createDownloadAttachment(filename, content, mime);
+
+      pushMessage({
+        role: "assistant",
+        content: `Archivo generado: ${filename}`,
+        attachments: [attachment],
+      });
+
+      try {
+        if (!puterRef.current) {
+          if (typeof window !== "undefined" && window.puter) {
+            puterRef.current = window.puter;
+          } else {
+            await ensurePuterReady();
+          }
+        }
+      } catch (error) {
+        console.warn("No fue posible asegurar Puter antes de guardar archivo", error);
+      }
+
+      const normalizedPath = filename.startsWith("/") ? filename : `/${filename}`;
+      const fsResult = await saveToPuterFs(normalizedPath, content, mime);
+
+      if (fsResult.ok) {
+        pushMessage({
+          role: "assistant",
+          content: fsResult.publicURL
+            ? `🌐 Enlace público: ${fsResult.publicURL}`
+            : `💾 Guardado en Puter FS: ${normalizedPath}`,
+        });
+      } else if (fsResult.reason && fsResult.reason !== "no_puter_fs") {
+        pushMessage({
+          role: "system",
+          content: `⚠️ No se pudo guardar en Puter FS: ${fsResult.reason}`,
+          error: true,
+        });
+      }
+
+      return true;
+    }
+
+    if (command.startsWith("/export ")) {
+      const exportMatch = rawCommand.match(/^\/export\s+([^\s]+)$/i);
+      const filename = exportMatch?.[1];
+
+      if (!filename) {
+        pushMessage({
+          role: "system",
+          content: "❌ Uso correcto: /export nombre.ext",
+          error: true,
+        });
+        return true;
+      }
+
+      if (!lastAIResponseRef.current) {
+        pushMessage({
+          role: "system",
+          content: "⚠️ No hay una respuesta previa de la IA para exportar.",
+          error: true,
+        });
+        return true;
+      }
+
+      const mime = guessMimeFromFilename(filename);
+      const attachment = createDownloadAttachment(filename, lastAIResponseRef.current, mime);
+
+      pushMessage({
+        role: "assistant",
+        content: `Exportado desde IA: ${filename}`,
+        attachments: [attachment],
+      });
+
+      try {
+        if (!puterRef.current) {
+          if (typeof window !== "undefined" && window.puter) {
+            puterRef.current = window.puter;
+          } else {
+            await ensurePuterReady();
+          }
+        }
+      } catch (error) {
+        console.warn("No fue posible asegurar Puter antes de exportar archivo", error);
+      }
+
+      const normalizedPath = filename.startsWith("/") ? filename : `/${filename}`;
+      const fsResult = await saveToPuterFs(normalizedPath, lastAIResponseRef.current, mime);
+
+      if (fsResult.ok) {
+        pushMessage({
+          role: "assistant",
+          content: fsResult.publicURL
+            ? `🌐 Enlace público: ${fsResult.publicURL}`
+            : `💾 Guardado en Puter FS: ${normalizedPath}`,
+        });
+      } else if (fsResult.reason && fsResult.reason !== "no_puter_fs") {
+        pushMessage({
+          role: "system",
+          content: `⚠️ No se pudo guardar en Puter FS: ${fsResult.reason}`,
+          error: true,
+        });
+      }
+
+      return true;
+    }
+
+    return false;
+  };
+
   const executeSubmit = async () => {
     if (isSubmitting) return;
 
-    const trimmed = input.trim();
-    if (!trimmed && pendingFiles.length === 0) {
+    const rawInput = input;
+    const trimmed = rawInput.trim();
+    const hasAttachments = pendingFiles.length > 0;
+
+    if (!trimmed && !hasAttachments) {
       return;
     }
 
-    try {
-      await ensurePuterReady();
-    } catch {
+    const isFileCommand = trimmed.startsWith("/make ") || trimmed.startsWith("/export ");
+
+    if (isFileCommand) {
+      const userMessage = pushMessage({
+        role: "user",
+        content: rawInput || "(Sin contenido)",
+      });
+      setInput("");
+      setPendingFiles([]);
+      setIsSubmitting(true);
+      const handled = await handleFileCommand(rawInput);
+      setIsSubmitting(false);
+      if (!handled) {
+        updateMessage(userMessage.id, {
+          content: `${rawInput}\n⚠️ Comando no reconocido.`,
+        });
+      }
       return;
     }
 
     setIsSubmitting(true);
+
+    try {
+      await ensurePuterReady();
+    } catch {
+      setIsSubmitting(false);
+      return;
+    }
 
     let attachmentsPayload: ChatAttachment[] = [];
     let attachmentSummary = "";
@@ -352,7 +598,7 @@ export function ArkaiosChat() {
 
     const userMessage = pushMessage({
       role: "user",
-      content: trimmed || "(Sin texto, solo adjuntos)",
+      content: rawInput || "(Sin texto, solo adjuntos)",
       attachments: attachmentsPayload,
     });
 
@@ -387,10 +633,9 @@ export function ArkaiosChat() {
       });
 
       historyRef.current.push({ role: "assistant", content: assistantText });
+      lastAIResponseRef.current = assistantText;
 
-      if (syncWithAida) {
-        await delegateToAida(assistantText);
-      }
+      await delegateToAida(assistantText);
     } catch (error) {
       updateMessage(placeholder.id, {
         content: `🚨 Error comunicando con Puter.js: ${(error as Error).message}`,
@@ -404,11 +649,10 @@ export function ArkaiosChat() {
       setInput("");
       setPendingFiles([]);
       setIsSubmitting(false);
+      updateMessage(userMessage.id, {
+        attachments: attachmentsPayload,
+      });
     }
-
-    updateMessage(userMessage.id, {
-      attachments: attachmentsPayload,
-    });
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -427,7 +671,7 @@ export function ArkaiosChat() {
     setPendingFiles((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const statusChip = (label: string, status: ConnectionState, icon: "puter" | "ai" | "gateway") => {
+  const statusChip = (label: string, status: ConnectionState) => {
     const copy = statusCopy[status];
     const IconComponent =
       status === "online" ? CheckCircle2 : status === "error" ? AlertTriangle : Loader2;
@@ -462,6 +706,12 @@ export function ArkaiosChat() {
     scrollToBottom();
   }, [pendingFiles.length]);
 
+  useEffect(() => {
+    return () => {
+      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
   return (
     <section
       id="interfaz"
@@ -482,9 +732,9 @@ export function ArkaiosChat() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {statusChip("Puter.js", puterStatus, "puter")}
-            {statusChip("Modelo", aiStatus, "ai")}
-            {statusChip("A.I.D.A.", gatewayStatus === "idle" ? "online" : gatewayStatus, "gateway")}
+            {statusChip("Puter.js", puterStatus)}
+            {statusChip("Modelo", aiStatus)}
+            {statusChip("A.I.D.A.", gatewayStatus === "idle" && !syncWithAida ? "idle" : gatewayStatus)}
           </div>
         </header>
 
@@ -502,7 +752,15 @@ export function ArkaiosChat() {
           </label>
           <button
             type="button"
-            onClick={() => setSyncWithAida((value) => !value)}
+            onClick={() => {
+              setSyncWithAida((value) => {
+                const next = !value;
+                if (!next) {
+                  setGatewayStatus("idle");
+                }
+                return next;
+              });
+            }}
             className={cn(
               "flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-[11px] uppercase tracking-[0.5em] transition",
               syncWithAida ? "border-primary/50 bg-primary/10 text-primary" : "text-muted-foreground",
@@ -540,27 +798,35 @@ export function ArkaiosChat() {
                   {message.attachments.map((attachment) => (
                     <div
                       key={attachment.id}
-                      className="overflow-hidden rounded-xl border border-white/10 bg-black/40"
+                      className="flex flex-col gap-2 overflow-hidden rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-xs"
                     >
-                      {attachment.preview && attachment.type.startsWith("image/") ? (
+                      <span className="font-semibold text-foreground">{attachment.name}</span>
+                      <span className="text-muted-foreground">
+                        {(attachment.mime ?? attachment.type) || "Archivo"} · {(attachment.size / 1024).toFixed(1)} KB
+                      </span>
+                      {attachment.preview && attachment.type?.startsWith("image/") ? (
                         <img
                           src={attachment.preview}
                           alt={attachment.name}
-                          className="max-h-40 max-w-[180px] object-cover"
+                          className="max-h-40 max-w-[180px] rounded-lg object-cover"
                         />
-                      ) : (
-                        <div className="flex flex-col gap-1 px-4 py-3 text-xs">
-                          <span className="font-semibold text-foreground">{attachment.name}</span>
-                          <span className="text-muted-foreground">
-                            {attachment.type || "Archivo"} · {(attachment.size / 1024).toFixed(1)} KB
-                          </span>
-                          {attachment.textContent ? (
-                            <span className="line-clamp-3 text-muted-foreground/80">
-                              {attachment.textContent}
-                            </span>
-                          ) : null}
-                        </div>
-                      )}
+                      ) : null}
+                      {attachment.textContent ? (
+                        <span className="line-clamp-3 whitespace-pre-wrap text-muted-foreground/80">
+                          {attachment.textContent}
+                        </span>
+                      ) : null}
+                      {attachment.downloadUrl ? (
+                        <a
+                          href={attachment.downloadUrl}
+                          download={attachment.name}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex w-max items-center gap-1 rounded-full border border-white/20 px-3 py-1 text-[11px] uppercase tracking-[0.45em] text-primary hover:border-primary/60"
+                        >
+                          ⬇️ Descargar
+                        </a>
+                      ) : null}
                     </div>
                   ))}
                 </div>
