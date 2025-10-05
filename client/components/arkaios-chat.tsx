@@ -321,8 +321,7 @@ export function ArkaiosChat() {
     }
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const executeSubmit = async () => {
     if (isSubmitting) return;
 
     const trimmed = input.trim();
@@ -407,10 +406,14 @@ export function ArkaiosChat() {
       setIsSubmitting(false);
     }
 
-    // remove attachments preview from user message to avoid stale data ref when removing
     updateMessage(userMessage.id, {
       attachments: attachmentsPayload,
     });
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await executeSubmit();
   };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -624,7 +627,8 @@ export function ArkaiosChat() {
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
                 if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                  void handleSubmit(event as unknown as FormEvent<HTMLFormElement>);
+                  event.preventDefault();
+                  void executeSubmit();
                 }
               }}
             />
