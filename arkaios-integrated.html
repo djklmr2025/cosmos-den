@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Arkaios — Integrated (Puter as Primary, A.I.D.A. as Secondary)</title>
+  <style>
+    :root{/*var(--bg:#020202);*/--accent:#00f6e0;--muted:#8aa0a8;}
+    html,body{height:100%;margin:0;background:#020202;color:#dff;font-family:Inter,system-ui,Arial}
+    .wrap{max-width:980px;margin:24px auto;padding:18px}
+    header{text-align:center;margin-bottom:18px}
+    .chat{background:linear-gradient(180deg,#031921,#07131a);border-radius:12px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,0.6)}
+    #messages{height:420px;overflow:auto;padding:12px;background:rgba(0,0,0,0.15);border-radius:8px;margin-bottom:12px}
+    .msg{padding:10px;border-radius:8px;margin:6px 0;max-width:86%;line-height:1.35;white-space:pre-wrap}
+    .msg.user{background:linear-gradient(90deg,#042b2a,#02343a);margin-left:auto;color:#cafff1}
+    .msg.ai{background:linear-gradient(90deg,#071826,#0b2530);color:#cfeffb}
+    .meta{font-size:12px;color:var(--muted);margin-bottom:8px}
+    form{display:flex;gap:8px}
+    input[type="text"]{flex:1;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:#001516;color:inherit}
+    button{padding:12px 16px;border-radius:8px;border:0;background:linear-gradient(90deg,var(--accent),#00d4c6);color:#002;cursor:pointer;font-weight:700}
+    .small{font-size:13px;color:var(--muted);margin-top:6px;text-align:center}
+    .right-panel, .panel-right, .sidebar-right { display:none !important; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 style="margin:0;font-weight:700">Arkaios — Chat (Puter ➜ A.I.D.A.)</h1>
+    <div class="meta">
+      <b>Flujo:</b> Puter GPT‑4.1/4o responde primero. A.I.D.A. valida/ejecuta si aplica.
+    </div>
+  </header>
+
+  <section class="chat" role="main" aria-label="Chat">
+    <div id="messages" aria-live="polite"></div>
+    <form id="chat-form" autocomplete="off">
+      <input id="msg-input" type="text" placeholder="Escribe tu mensaje y presiona Enter..." />
+      <button id="send-btn" type="submit">Enviar</button>
+    </form>
+    <div class="small">Tip: escribe <code>/modelo 4.1</code> o <code>/modelo 4o</code> para cambiar entre GPT‑4.1 y GPT‑4o.</div>
+  </section>
+</div>
+
+<!-- Puter.js: IA primaria -->
+<script src="https://js.puter.com/v2/"></script>
+
+<script>
+// ——— Configuración ———
+const AIDA_GATEWAY = "https://arkaios-gateway-open.onrender.com/aida/gateway";
+const AIDA_KEY = "KaOQ1ZQ4gyF5bkgxkiwPEFgkrUMW31ZEwVhOITkLRO5jaImetmUlYJegOdwG";
+
+let PRIMARY_MODEL = "gpt-4.1"; // por defecto
+const FALLBACK_MODEL = "gpt-4o";
+
+function addMsg(text, who='ai') {
+  const container = document.getElementById('messages');
+  const el = document.createElement('div');
+  el.className = 'msg ' + (who==='user' ? 'user' : 'ai');
+  el.textContent = text;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+
+function sanitize(s) { return String(s||'').trim(); }
+
+// Heurística para decidir si A.I.D.A. debe validar/ejecutar
+function shouldDelegate(userText, aiText) {
+  const heavy = ['deploy','repositorio','repo','archivo','escribir','guardar','memoria','docker','git','push','crear','leer','escanear','analizar','migrar','desplegar','automatiza','script','shell','bash'];
+  const txt = (userText + ' ' + aiText).toLowerCase();
+  for (const w of heavy) if (txt.includes(w)) return true;
+  if ((aiText||'').length > 1200) return true; // respuestas muy largas
+  return false;
+}
+
+// ——— IA primaria: Puter (GPT‑4.1/4o) ———
+async function askPuter(prompt) {
+  try {
+    const resp = await puter.ai.chat(prompt, { model: PRIMARY_MODEL, stream: false });
+    // Normalizar posibles formatos de Puter
+    if (typeof resp === 'string') return resp;
+    if (resp?.message?.content) {
+      const c = resp.message.content;
+      if (Array.isArray(c)) return c[0]?.text || c[0] || '';
+      return c;
+    }
+    if (resp?.text) return resp.text;
+    return JSON.stringify(resp);
+  } catch (err) {
+    // Intento con modelo alterno
+    try {
+      const resp2 = await puter.ai.chat(prompt, { model: FALLBACK_MODEL, stream:false });
+      if (typeof resp2 === 'string') return `[fallback ${FALLBACK_MODEL}] ` + resp2;
+      if (resp2?.text) return `[fallback ${FALLBACK_MODEL}] ` + resp2.text;
+      return `[fallback ${FALLBACK_MODEL}] ` + JSON.stringify(resp2);
+    } catch(err2) {
+      return "⚠️ Error con Puter ("+PRIMARY_MODEL+"): " + err.message + " | Fallback: " + err2.message;
+    }
+  }
+}
+
+// ——— IA secundaria: A.I.D.A. (validación/ejecución) ———
+async function validateWithAIDA(userPrompt, primaryAnswer) {
+  try {
+    const body = {
+      agent_id: "puter",
+      action: "validate",
+      params: { objective: userPrompt, draft: primaryAnswer }
+    };
+    const resp = await fetch(AIDA_GATEWAY, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + AIDA_KEY
+      },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) throw new Error('Gateway HTTP ' + resp.status);
+    const data = await resp.json();
+    // Estándar de salida: preferir 'output' o 'result'
+    let out = data.output || data.result || data.validation || data;
+    return typeof out === 'string' ? out : JSON.stringify(out, null, 2);
+  } catch (err) {
+    return "⚠️ Error contactando A.I.D.A. para validación: " + err.message;
+  }
+}
+
+// ——— Manejo de formulario ———
+document.getElementById('chat-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const input = document.getElementById('msg-input');
+  const raw = sanitize(input.value);
+  if (!raw) return;
+
+  // Comandos rápidos para elegir modelo
+  if (raw.startsWith('/modelo')) {
+    const pick = raw.split(' ').pop().trim().toLowerCase();
+    if (pick.includes('4.1') or pick === '4.1') PRIMARY_MODEL = 'gpt-4.1';
+    else if (pick.includes('4o') or pick === '4o' or pick === '4.0') PRIMARY_MODEL = 'gpt-4o';
+    addMsg('✅ Modelo activo: ' + PRIMARY_MODEL, 'ai');
+    input.value = '';
+    return;
+  }
+
+  addMsg(raw, 'user');
+  input.value = '';
+  addMsg('⚡ Consultando a Puter ('+PRIMARY_MODEL+')...','ai');
+
+  // 1) Respuesta primaria (Puter GPT‑4.1/4o)
+  const puterResp = await askPuter(raw);
+  const msgs = document.querySelectorAll('#messages .msg.ai');
+  if (msgs.length) msgs[msgs.length - 1].textContent = puterResp;
+
+  // 2) Validación/Delegación con A.I.D.A. (opcional/heurística)
+  if (shouldDelegate(raw, puterResp)) {
+    addMsg('🔄 A.I.D.A. validando/ejecutando tarea avanzada...', 'ai');
+    const aidaResp = await validateWithAIDA(raw, puterResp);
+    addMsg(aidaResp, 'ai');
+  }
+});
+
+addMsg("👋 Bienvenido. Ahora Puter (GPT‑4.1/4o) es la IA primaria. A.I.D.A. actúa como validador/ejecutor cuando hace falta.
+Escribe algo para empezar.", 'ai');
+</script>
+</body>
+</html>

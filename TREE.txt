@@ -1,0 +1,10 @@
+ARKAIOS_patch_full_ui/
+ ├── index.html              
+ ├── arkaios-integrated.html 
+ ├── server_arkaios_new.py   
+ ├── arkaios_ai_brain_real.py
+ ├── arkaios_file_manager.py
+ ├── arkaios_executor.py
+ ├── arkaios_builder_mode.py
+ ├── arkaios_builder_ui.html
+ └── requirements.txt        )

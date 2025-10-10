@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ARKAIOS - IA Integrada (Puter primero + Exportación de archivos)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0b141a;--panel:#0e1b22;--muted:#86a2ad;--text:#e5f7ff;--brand:#00f6e0;--ok:#16a34a;--warning:#f59e0b;--danger:#ef4444;--shadow:0 10px 30px rgba(0,0,0,.35);--radius:16px}
+    *{box-sizing:border-box} html,body{height:100%} body{margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:var(--text)}
+    .app{display:grid;grid-template-columns:1fr 320px;gap:16px;padding:18px;max-width:1200px;margin:24px auto}
+    .chat{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid #102731;display:flex;flex-direction:column;min-height:70vh}
+    .chat-header{padding:14px 16px;border-bottom:1px solid #102731;display:flex;align-items:center;gap:10px}
+    .status-dot{width:10px;height:10px;border-radius:50%}
+    .status-dot.online{background:var(--ok)}
+    .status-dot.offline{background:var(--danger)}
+    .status-dot.connecting{background:var(--warning)}
+    .title{font-weight:700}
+    .chip{display:inline-grid;place-items:center;padding:6px 10px;border-radius:99px;background:#052a2a;color:#9ff0e8;font-weight:600;font-size:12px;border:1px solid #0e4040}
+    .chip.connecting{background:#2b2105;color:#ffd27b;border-color:#4a3607}
+    .chip.error{background:#3f0c0c;color:#ffc3c3;border-color:#5e1a1a}
+    .chip.success{background:#072912;color:#b7fbd1;border-color:#0d5127}
+    .feed{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+    .msg{max-width:90%;padding:12px 14px;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.25);line-height:1.4;opacity:0;animation:fadeIn .3s forwards;white-space:pre-wrap;border:1px solid #0d2a35}
+    .msg.ai{background:#0a222b}
+    .msg.me{background:#0d2430;margin-left:auto}
+    .msg.system{background:#2b2105;border:1px solid #4a3607;text-align:center}
+    .composer{display:flex;gap:10px;padding:12px;border-top:1px solid #102731}
+    .composer textarea{flex:1;resize:none;height:48px;padding:12px;border-radius:12px;border:1px solid #103140;background:#081a20;color:var(--text)}
+    .composer button{padding:12px 16px;border:none;border-radius:12px;cursor:pointer;font-weight:600}
+    .composer button.primary{background:linear-gradient(90deg,#00f6e0,#00d4c6);color:#012929}
+    .composer button.secondary{background:#0b2a2f;color:var(--text);border:1px solid #103140}
+    .composer button:disabled{opacity:0.5;cursor:not-allowed}
+    .side{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid #102731;padding:14px}
+    .side h3{margin:4px 0 10px}
+    .gallery{display:grid;gap:10px}
+    .gal-item{display:grid;grid-template-columns:48px 1fr;gap:10px;align-items:center;padding:8px;border:1px solid #103140;border-radius:12px;background:#0a1a21}
+    .gal-item img{width:48px;height:48px;object-fit:cover;border-radius:10px}
+    .model-selector{padding:6px 10px;border:1px solid #103140;border-radius:8px;background:#081a20;color:var(--text);font-size:12px}
+    .attachment-preview{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    .attachment-item{position:relative;border:1px solid #103140;border-radius:8px;padding:4px;background:#081a20}
+    .attachment-item img{max-width:80px;max-height:80px;object-fit:cover;border-radius:4px}
+    .attachment-remove{position:absolute;top:-8px;right:-8px;width:20px;height:20px;border-radius:50%;background:var(--danger);color:white;border:none;font-size:12px;cursor:pointer}
+    .logout{margin-left:auto}
+    a{color:#7efcf0}
+    code{background:#07141a;padding:2px 6px;border-radius:6px;border:1px solid #0c2b36}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @media (max-width:980px){.app{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <section class="app">
+    <div class="chat">
+      <div class="chat-header">
+        <span class="status-dot connecting" id="status-dot"></span>
+        <span class="title">ARKAIOS</span>
+        <span class="chip connecting" id="ai-status">IA Conectando...</span>
+        <select class="model-selector" id="model-selector">
+          <option value="gpt-4.1" selected>GPT-4.1 (Puter)</option>
+          <option value="gpt-4o">GPT-4o (Puter)</option>
+        </select>
+        <span class="chip" id="puter-status">Puter: Iniciando</span>
+        <button class="chip logout" onclick="logout()">Salir</button>
+      </div>
+
+      <div id="feed" class="feed"></div>
+
+      <div class="composer">
+      <input id="file" type="file" hidden multiple accept="image/*,.pdf,.txt,.md,.json,.csv">
+      <button id="btn-attach" class="secondary" onclick="document.getElementById('file').click()">📎</button>
+      <textarea id="text" placeholder="Escribe aquí… (Ctrl+Enter para enviar)"></textarea>
+      <button id="send" class="primary" onclick="sendMsg()">Enviar</button>
+      <div class="voice-controls">
+        <button class="voice-btn" id="voice-listen" title="Escuchar por voz"><i>🎤</i></button>
+        <button class="voice-btn" id="voice-speak" title="Hablar respuesta"><i>🔊</i></button>
+        <div class="voice-options">
+          <select id="voice-language">
+            <option value="es-ES">Español</option>
+            <option value="en-US">English</option>
+          </select>
+          <select id="voice-speed">
+            <option value="0.8">Lento</option>
+            <option value="1" selected>Normal</option>
+            <option value="1.2">Rápido</option>
+          </select>
+        </div>
+        <span class="voice-status" id="voice-status"></span>
+      </div>
+    </div>
+
+      <div id="attachment-preview" class="attachment-preview"></div>
+    </div>
+
+    <aside class="side">
+      <h3>Estado del Sistema</h3>
+      <div class="gallery">
+        <div class="gal-item">
+          <img src="https://picsum.photos/seed/puter/96" alt="puter">
+          <div>
+            <div>Puter.js SDK</div>
+            <small id="puter-detail">Cargando...</small>
+          </div>
+        </div>
+        <div class="gal-item">
+          <img src="https://picsum.photos/seed/ai/96" alt="ai">
+          <div>
+            <div>IA Disponible</div>
+            <small id="ai-detail">Verificando...</small>
+          </div>
+        </div>
+        <div class="gal-item">
+          <img src="https://picsum.photos/seed/files/96" alt="files">
+          <div>
+            <div>Sistema Archivos</div>
+            <small id="files-detail">Listo</small>
+          </div>
+        </div>
+      </div>
+
+      <h3>Explorador de Archivos</h3>
+      <div class="file-explorer">
+        <div class="file-toolbar">
+          <button id="btn-back" class="file-btn" onclick="navigateBack()">⬅️</button>
+          <button id="btn-forward" class="file-btn" onclick="navigateForward()">➡️</button>
+          <button id="btn-up" class="file-btn" onclick="navigateUp()">⬆️</button>
+          <button id="btn-refresh" class="file-btn" onclick="refreshFileTree()">🔄</button>
+          <button id="btn-new-file" class="file-btn" onclick="createNewFile()">📄</button>
+          <button id="btn-new-folder" class="file-btn" onclick="createNewFolder()">📁</button>
+        </div>
+        <div class="file-path" id="current-path">./</div>
+        <div class="file-tree" id="file-tree">
+          <!-- Aquí se mostrará el árbol de archivos -->
+          <div class="loading">Cargando archivos...</div>
+        </div>
+      </div>
+
+      <h3>Favoritos</h3>
+      <div class="favorites" id="favorites-list">
+        <!-- Aquí se mostrarán los archivos favoritos -->
+        <div class="no-favorites">No hay favoritos</div>
+      </div>
+
+      <h3>Historial</h3>
+      <div class="history" id="history-list">
+        <!-- Aquí se mostrará el historial de navegación -->
+        <div class="no-history">No hay historial</div>
+      </div>
+            <small id="fs-detail">Pendiente...</small>
+          </div>
+        </div>
+      </div>
+
+      <h3>Comandos Especiales</h3>
+      <div class="gallery">
+        <div class="gal-item"><img src="https://picsum.photos/seed/img/96" alt=""><div><code>/img</code> descripción de imagen</div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/analyze/96" alt=""><div><code>/analyze</code> texto/archivo</div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/export/96" alt=""><div><code>/export nombre.ext</code> (descarga última respuesta)</div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/make/96" alt=""><div><code>/make nombre.ext</code> + bloque <code>```contenido```</code></div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/clear/96" alt=""><div><code>/clear</code> limpiar chat</div></div>
+      </div>
+      
+      <h3>Comandos Builder Mode</h3>
+      <div class="gallery">
+        <div class="gal-item"><img src="https://picsum.photos/seed/react/96" alt=""><div><code>create react-app [name]</code></div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/vue/96" alt=""><div><code>create vue-app [name]</code></div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/python/96" alt=""><div><code>create python-api [name]</code></div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/nextjs/96" alt=""><div><code>create nextjs-app [name]</code></div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/express/96" alt=""><div><code>create express-app [name]</code></div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/html/96" alt=""><div><code>create html-static [name]</code></div></div>
+      </div>
+      
+      <h3>Comandos Git</h3>
+      <div class="gallery">
+        <div class="gal-item"><img src="https://picsum.photos/seed/git/96" alt=""><div><code>git init</code></div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/commit/96" alt=""><div><code>git commit -m "message"</code></div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/push/96" alt=""><div><code>git push</code></div></div>
+      </div>
+      
+      <h3>Comandos Deploy</h3>
+      <div class="gallery">
+        <div class="gal-item"><img src="https://picsum.photos/seed/firebase/96" alt=""><div><code>deploy to firebase</code></div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/vercel/96" alt=""><div><code>deploy to vercel</code></div></div>
+        <div class="gal-item"><img src="https://picsum.photos/seed/render/96" alt=""><div><code>deploy to render</code></div></div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- Puter.js SDK -->
+  <script src="https://js.puter.com/v2/"></script>
+  <script src="arkaios_voice.js"></script>
+
+  <script>
+    // ===== Variables globales =====
+    let authToken = null;
+    let puterReady = false;
+    let aiReady = false;
+    let pendingFiles = [];
+    let conversationHistory = [];
+    let LAST_AI_TEXT = ""; // <— NUEVO: para /export
+
+    // Elementos DOM
+    const statusDot = document.getElementById('status-dot');
+    const aiStatus = document.getElementById('ai-status');
+    const puterStatus = document.getElementById('puter-status');
+    const modelSelector = document.getElementById('model-selector');
+    const feedEl = document.getElementById('feed');
+    const textInput = document.getElementById('text');
+    const sendBtn = document.getElementById('send');
+    const fileInput = document.getElementById('file');
+    const attachmentPreview = document.getElementById('attachment-preview');
+
+    // A.I.D.A. opcional (secundaria)
+    const AIDA_GATEWAY = "https://arkaios-gateway-open.onrender.com/aida/gateway";
+    const AIDA_KEY = "KaOQ1ZQ4gyF5bkgxkiwPEFgkrUMW31ZEwVhOITkLRO5jaImetmUlYJegOdwG";
+    async function aidaValidate(objective, draft){
+      try{
+        const resp = await fetch(AIDA_GATEWAY, {
+          method: "POST",
+          headers: { "Content-Type":"application/json", "Authorization":"Bearer "+AIDA_KEY },
+          body: JSON.stringify({agent_id:"puter", action:"validate", params:{objective, draft}})
+        });
+        if(!resp.ok) throw new Error("HTTP "+resp.status);
+        const data = await resp.json();
+        return data.output || data.result || JSON.stringify(data);
+      }catch(e){
+        return "A.I.D.A. no disponible: " + e.message;
+      }
+    }
+
+    // ===== Autenticación =====
+    function mustAuth() {
+      const token = localStorage.getItem('ark_token');
+      if (!token) { 
+        // si no hay auth, aún dejamos probar la UI
+        authToken = null;
+      } else {
+        authToken = token;
+        const u = JSON.parse(localStorage.getItem('ark_user') || '{}');
+        addMsg(`Autenticado como <b>${u.email || 'demo@arkaios.local'}</b>.`, 'system');
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('ark_token');
+      localStorage.removeItem('ark_user');
+      location.reload();
+    }
+
+    // ===== UI helpers =====
+    function updateStatus(component, status) {
+      const elements = {
+        'puter': { dot: statusDot, status: puterStatus, detail: document.getElementById('puter-detail') },
+        'ai': { status: aiStatus, detail: document.getElementById('ai-detail') },
+        'fs': { detail: document.getElementById('fs-detail') }
+      };
+      const el = elements[component]; if (!el) return;
+      const configs = {
+        'connecting': { class: 'connecting', text: 'Conectando...', color: '#f59e0b' },
+        'online': { class: 'success', text: 'Conectado', color: '#16a34a' },
+        'error': { class: 'error', text: 'Error', color: '#ef4444' },
+        'ready': { class: 'success', text: 'Listo', color: '#16a34a' }
+      };
+      const config = configs[status] || configs['connecting'];
+      if (el.dot) el.dot.className = `status-dot ${config.class.replace('success', 'online')}`;
+      if (el.status) { el.status.className = `chip ${config.class}`; el.status.textContent = config.text; }
+      if (el.detail) { el.detail.textContent = config.text; el.detail.style.color = config.color; }
+    }
+
+    function addMsg(html, who = 'ai') {
+      const d = document.createElement('div');
+      d.className = `msg ${who}`;
+      d.innerHTML = html;
+      feedEl.appendChild(d);
+      feedEl.scrollTop = feedEl.scrollHeight;
+    }
+
+    // Archivos (adjuntos UI existente)
+    function renderAttachments() {
+      attachmentPreview.innerHTML = '';
+      pendingFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'attachment-item';
+        if (file.type.startsWith('image/')) {
+          const img = document.createElement('img');
+          const reader = new FileReader();
+          reader.onload = e => img.src = e.target.result;
+          reader.readAsDataURL(file);
+          item.appendChild(img);
+        } else {
+          const span = document.createElement('span');
+          span.textContent = `📄 ${file.name}`;
+          span.style.padding = '20px';
+          span.style.display = 'block';
+          item.appendChild(span);
+        }
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'attachment-remove';
+        removeBtn.textContent = '×';
+        removeBtn.onclick = () => { pendingFiles.splice(index, 1); renderAttachments(); };
+        item.appendChild(removeBtn);
+        attachmentPreview.appendChild(item);
+      });
+    }
+    fileInput.addEventListener('change', (e) => {
+      const newFiles = Array.from(e.target.files);
+      pendingFiles = [...pendingFiles, ...newFiles];
+      renderAttachments();
+      addMsg(`📎 ${newFiles.length} archivo(s) adjuntado(s)`, 'system');
+    });
+
+    // ====== Inicialización Puter ======
+    async function initializePuter() {
+      updateStatus('puter', 'connecting');
+      addMsg('🔄 Inicializando Puter.js...', 'system');
+      let attempts = 0;
+      while (attempts < 20) {
+        try {
+          if (typeof puter !== 'undefined' && puter.ai) {
+            puterReady = true;
+            updateStatus('puter', 'online');
+            document.getElementById('puter-detail').textContent = 'SDK Cargado';
+            await testAI();
+            await testFileSystem();
+            addMsg('✅ Sistema ARKAIOS listo', 'system');
+            addMsg('👋 ¡Hola! Puter (GPT-4.1/4o) es la IA primaria. Usa <code>/export</code> y <code>/make</code> para crear archivos descargables.', 'ai');
+            break;
+          }
+        } catch (error) { console.log('Init err', error); }
+        attempts++; await new Promise(r => setTimeout(r, 500));
+      }
+      if (!puterReady) { updateStatus('puter','error'); addMsg('❌ No se pudo cargar Puter.js.', 'system'); }
+    }
+
+    async function testImageGeneration() {
+      try { if (puter?.ai?.txt2img) { await puter.ai.txt2img("test image"); return true; } return false; }
+      catch { return false; }
+    }
+
+    async function testAI() {
+      try {
+        updateStatus('ai', 'connecting');
+        const model = modelSelector.value;
+        const response = await puter.ai.chat('Di solo "OK"', { model, stream:false });
+        let text = (typeof response==='string')? response : (response?.text || response?.message?.content || '');
+        updateStatus('ai', 'ready'); aiReady = true;
+        const imgOK = await testImageGeneration();
+        document.getElementById('ai-detail').textContent = `Modelo: ${model}${imgOK ? ', Imágenes: ✓' : ', Imágenes: ✗'}`;
+      } catch (error) {
+        updateStatus('ai', 'error');
+        document.getElementById('ai-detail').textContent = 'Error: ' + error.message;
+      }
+    }
+
+    async function testFileSystem() {
+      try { if (puter.fs) { await puter.fs.readdir('/'); updateStatus('fs','ready'); } else updateStatus('fs','error'); }
+      catch { updateStatus('fs','error'); }
+    }
+
+    // ====== UTILIDADES DE ARCHIVOS (descarga local + Puter FS opcional) ======
+    function createDownloadLink(filename, text, mime = 'text/plain;charset=utf-8') {
+      const blob = new Blob([text], { type: mime });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.textContent = `⬇️ Descargar ${filename}`;
+      a.rel = 'noopener';
+      a.target = '_blank';
+      return a;
+    }
+
+    async function saveToPuterFS(path, text, mime = 'text/plain;charset=utf-8') {
+      try {
+        if (!window.puter || !puter.fs || !puter.fs.writeFile) return { ok:false, reason:'no_puterrs' };
+        await puter.fs.writeFile(path, text, { mimeType: mime });
+        let publicURL = null;
+        if (puter.fs.getPublicURL) publicURL = await puter.fs.getPublicURL(path);
+        return { ok:true, path, publicURL };
+      } catch (e) {
+        return { ok:false, reason:e.message || String(e) };
+      }
+    }
+
+    function extractCodeBlock(raw) {
+      const m = raw.match(/```[a-zA-Z0-9_-]*\n([\s\S]*?)```/);
+      return m ? m[1].trim() : null;
+    }
+
+    function addDownloadMsg(node) {
+      const d = document.createElement('div');
+      d.className = 'msg ai';
+      d.appendChild(node);
+      feedEl.appendChild(d);
+      feedEl.scrollTop = feedEl.scrollHeight;
+    }
+
+    function rememberLastAIText(text) { LAST_AI_TEXT = (text || '').toString(); }
+
+    async function handleFileCommands(commandLine) {
+      if (commandLine.startsWith('/make ')) {
+        const rest = commandLine.slice(6).trim();
+        const parts = rest.split(/\s+/);
+        const filename = parts.shift();
+        if (!filename) { addMsg('❌ Uso: /make <nombre.ext> \\n seguido de texto o bloque ```', 'system'); return true; }
+        const contentBlock = extractCodeBlock(commandLine);
+        const content = contentBlock ?? (rest.slice(filename.length).trim() || ''); 
+        if (!content) { addMsg('❌ Agrega contenido después del nombre o dentro de ```...```', 'system'); return true; }
+        const a = createDownloadLink(filename, content);
+        addDownloadMsg(a);
+        const puterPath = '/' + filename;
+        const saved = await saveToPuterFS(puterPath, content);
+        if (saved.ok) {
+          if (saved.publicURL) addMsg(`🌐 Enlace público: <a href="${saved.publicURL}" target="_blank" rel="noopener">${saved.publicURL}</a>`, 'ai');
+          else addMsg(`💾 Guardado en Puter FS: ${puterPath}`, 'ai');
+        } else if (saved.reason !== 'no_puterrs') {
+          addMsg('⚠️ No se pudo guardar en Puter FS: ' + saved.reason, 'system');
+        }
+        return true;
+      }
+
+      if (commandLine.startsWith('/export ')) {
+        const filename = commandLine.slice(8).trim();
+        if (!filename) { addMsg('❌ Uso: /export <nombre.ext>', 'system'); return true; }
+        if (!LAST_AI_TEXT) { addMsg('⚠️ No hay respuesta previa de IA para exportar.', 'system'); return true; }
+        const a = createDownloadLink(filename, LAST_AI_TEXT);
+        addDownloadMsg(a);
+        const puterPath = '/' + filename;
+        const saved = await saveToPuterFS(puterPath, LAST_AI_TEXT);
+        if (saved.ok) {
+          if (saved.publicURL) addMsg(`🌐 Enlace público: <a href="${saved.publicURL}" target="_blank" rel="noopener">${saved.publicURL}</a>`, 'ai');
+          else addMsg(`💾 Guardado en Puter FS: ${puterPath}`, 'ai');
+        } else if (saved.reason !== 'no_puterrs') {
+          addMsg('⚠️ No se pudo guardar en Puter FS: ' + saved.reason, 'system');
+        }
+        return true;
+      }
+      return false;
+    }
+
+    // ====== Envío de mensajes ======
+    async function sendMsg() {
+      const text = textInput.value.trim();
+      if (!text && pendingFiles.length === 0) return;
+      if (!puterReady || !aiReady) { addMsg('❌ Sistema no listo.', 'system'); return; }
+
+      // si es comando de archivos, se maneja local y salimos
+      if (text.startsWith('/make ') || text.startsWith('/export ')) {
+        addMsg(text, 'me');
+        textInput.value = '';
+        await handleFileCommands(text);
+        return;
+      }
+
+      if (text) addMsg(text, 'me');
+      if (pendingFiles.length) addMsg(`📎 Enviando ${pendingFiles.length} archivo(s)...`, 'system');
+
+      textInput.value = ''; sendBtn.disabled = true; sendBtn.textContent = 'Enviando...';
+
+      try {
+        // Comandos especiales existentes
+        if (text.startsWith('/')) { await handleSpecialCommand(text); return; }
+
+        // Construir mensaje -> aquí puedes enriquecer con adjuntos si lo deseas
+        let full = text;
+        if (pendingFiles.length > 0) {
+          full += "\n\nArchivos adjuntos:";
+          for (const file of pendingFiles) {
+            full += `\n- ${file.name} (${file.type||'tipo desconocido'})`;
+          }
+        }
+
+        conversationHistory.push({ role: "user", content: full });
+
+        const model = modelSelector.value;
+        let aiResponse;
+        const response = await puter.ai.chat(full, { model, stream:false });
+        if (typeof response === 'string') aiResponse = response;
+        else if (response?.message?.content) aiResponse = Array.isArray(response.message.content) ? (response.message.content[0]?.text || response.message.content[0] || '') : response.message.content;
+        else if (response?.text) aiResponse = response.text;
+        else aiResponse = 'Respuesta recibida en formato no reconocido.';
+
+        conversationHistory.push({ role: "assistant", content: aiResponse });
+        addMsg(aiResponse, 'ai');
+        rememberLastAIText(aiResponse); // <— clave para /export
+
+        // Validación opcional con A.I.D.A. (heurística simple)
+        const needAIDA = aiResponse.length > 1200 || /deploy|script|docker|git|automatiza/i.test(full);
+        if (needAIDA) {
+          addMsg('🔄 A.I.D.A. validando...', 'system');
+          const audit = await aidaValidate(full, aiResponse);
+          addMsg(`🛡️ Validación A.I.D.A.\n${audit}`, 'ai');
+        }
+
+      } catch (error) {
+        addMsg(`❌ Error: ${error.message}.`, 'system');
+      } finally {
+        sendBtn.disabled = false; sendBtn.textContent = 'Enviar';
+        pendingFiles = []; renderAttachments();
+      }
+    }
+
+    async function handleSpecialCommand(command) {
+      const [cmd, ...args] = command.slice(1).split(' ');
+      const arg = args.join(' ').trim();
+      switch (cmd) {
+        case 'img':
+          if (!puter?.ai?.txt2img) { addMsg('❌ txt2img no disponible.', 'system'); return; }
+          const imageElement = await puter.ai.txt2img(arg || 'a small blue square');
+          const container = document.createElement('div');
+          container.className = 'msg ai';
+          const title = document.createElement('div');
+          title.style.marginBottom = '8px'; title.style.fontWeight = 'bold';
+          title.innerHTML = `🖼️ Imagen generada: "${arg||'test'}"`;
+          container.appendChild(title);
+          imageElement.style.maxWidth = '100%'; imageElement.style.borderRadius = '12px'; imageElement.style.border = '1px solid #103140';
+          container.appendChild(imageElement);
+          feedEl.appendChild(container); feedEl.scrollTop = feedEl.scrollHeight;
+          addMsg('✅ Imagen generada', 'system');
+          break;
+        case 'test':
+          addMsg('🔧 Probando conexiones...', 'system');
+          await testAI(); await testFileSystem();
+          addMsg('✅ Prueba completada.', 'system');
+          break;
+        case 'clear':
+          feedEl.innerHTML = ''; conversationHistory = []; addMsg('🧹 Chat limpiado.', 'system'); break;
+        case 'analyze':
+          if (!arg) { addMsg('❌ Uso: /analyze texto', 'system'); return; }
+          const analysis = await puter.ai.chat(`Analiza detalladamente: "${arg}"`, { model: modelSelector.value, stream:false });
+          const txt = (typeof analysis === 'string')? analysis : (analysis?.message?.content || analysis?.text || 'Sin datos');
+          addMsg(`📊 Análisis:\n${txt}`, 'ai'); rememberLastAIText(txt); break;
+        default:
+          addMsg(`❌ Comando desconocido: /${cmd}`, 'system');
+      }
+    }
+
+    textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendMsg(); }});
+    modelSelector.addEventListener('change', async () => { addMsg(`🔄 Modelo: ${modelSelector.value}`, 'system'); await testAI(); });
+    document.addEventListener('dragover', (e) => { e.preventDefault(); document.body.style.backgroundColor = '#06141a'; });
+    document.addEventListener('dragleave', (e) => { if (e.clientX === 0 && e.clientY === 0) { document.body.style.backgroundColor = ''; }});
+    document.addEventListener('drop', (e) => { e.preventDefault(); document.body.style.backgroundColor = ''; const files = Array.from(e.dataTransfer.files); if (files.length > 0) { pendingFiles = [...pendingFiles, ...files]; renderAttachments(); addMsg(`📎 ${files.length} archivo(s) por drag & drop`, 'system'); }});
+    document.addEventListener('paste', async (e) => {
+      const items = Array.from(e.clipboardData.items).filter(i=>i.type.startsWith('image/'));
+      if (items.length > 0) {
+        for (const it of items) {
+          const f = it.getAsFile(); if (!f) continue;
+          const renamed = new File([f], `pasted-image-${Date.now()}.png`, { type: f.type });
+          pendingFiles.push(renamed);
+        }
+        renderAttachments(); addMsg(`📎 ${items.length} imagen(es) pegada(s)`, 'system');
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => { mustAuth(); initializePuter(); });
+  </script>
+</body>
+</html>
