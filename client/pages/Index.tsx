@@ -4,6 +4,7 @@ import { DemoResponse } from "@shared/api";
 import { motion } from "framer-motion";
 import { Activity, Cpu, RefreshCw, Shield, Sparkles, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 type ConnectionState = "idle" | "checking" | "online" | "offline";
 type LogTone = "info" | "success" | "error";
@@ -162,17 +163,20 @@ export default function Index() {
               </p>
             </div>
           </div>
-          <nav className="hidden items-center gap-8 text-xs uppercase tracking-[0.48em] text-muted-foreground md:flex">
-            <a className="transition hover:text-primary" href="#diagnostico">
-              Diagnóstico
-            </a>
-            <a className="transition hover:text-primary" href="#protocolos">
-              Protocolos
-            </a>
-            <a className="transition hover:text-primary" href="#soporte">
-              Soporte
-            </a>
-          </nav>
+  <nav className="hidden items-center gap-8 text-xs uppercase tracking-[0.48em] text-muted-foreground md:flex">
+    <a className="transition hover:text-primary" href="#diagnostico">
+      Diagnóstico
+    </a>
+    <a className="transition hover:text-primary" href="#protocolos">
+      Protocolos
+    </a>
+    <a className="transition hover:text-primary" href="#soporte">
+      Soporte
+    </a>
+    <Link to="/lab" className="transition hover:text-primary">
+      Laboratorio
+    </Link>
+  </nav>
           <button
             type="button"
             onClick={() => {
@@ -228,14 +232,22 @@ export default function Index() {
                 <RefreshCw className="relative z-10 size-5 stroke-[2.4] transition group-hover:rotate-180" />
                 <span className="relative z-10">Reintentar</span>
               </button>
-              <a
-                href="#protocolos"
+              <Link
+                to="/xr"
                 className="group relative inline-flex h-14 items-center gap-3 overflow-hidden rounded-full border border-accent/60 px-8 font-display text-sm uppercase tracking-[0.6em] text-accent transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/80"
               >
                 <span className="absolute inset-0 bg-accent/20 blur-xl transition duration-500 group-hover:bg-accent/40 group-hover:blur-2xl" />
                 <Zap className="relative z-10 size-5 stroke-[2.4] transition group-hover:translate-x-1" />
                 <span className="relative z-10">Entrar XR</span>
-              </a>
+              </Link>
+              <Link
+                to="/lab"
+                className="group relative inline-flex h-14 items-center gap-3 overflow-hidden rounded-full border border-primary/70 px-8 font-display text-sm uppercase tracking-[0.6em] text-primary transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/80"
+              >
+                <span className="absolute inset-0 bg-primary/15 blur-xl transition duration-500 group-hover:bg-primary/40 group-hover:blur-2xl" />
+                <Sparkles className="relative z-10 size-5 stroke-[2.4]" />
+                <span className="relative z-10">Abrir Laboratorio</span>
+              </Link>
             </motion.div>
 
             <motion.div
@@ -446,7 +458,7 @@ export default function Index() {
           </div>
         </section>
 
-        <div className="relative z-10 border-t border-white/5 bg-black/30 py-20 backdrop-blur-xl">
+        <div id="chat" className="relative z-10 border-t border-white/5 bg-black/30 py-20 backdrop-blur-xl">
           <div className="container mx-auto px-6">
             <ArkaiosChat />
           </div>

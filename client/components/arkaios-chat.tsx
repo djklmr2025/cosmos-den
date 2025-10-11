@@ -17,8 +17,15 @@ import {
   ToggleRight,
   X,
   Zap,
+  Code,
+  FileText,
+  Folder,
+  Settings,
+  Terminal,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 type ConnectionState = "idle" | "connecting" | "online" | "error";
 
@@ -147,6 +154,8 @@ export function ArkaiosChat() {
   const objectUrlsRef = useRef<string[]>([]);
 
   const isGatewayConfigured = useMemo(() => Boolean(gatewayUrl && gatewayKey), []);
+
+  
 
   const scrollToBottom = () => {
     queueMicrotask(() => {
@@ -660,6 +669,8 @@ export function ArkaiosChat() {
     await executeSubmit();
   };
 
+  
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
@@ -885,6 +896,25 @@ export function ArkaiosChat() {
             onChange={handleFileChange}
             accept="image/*,.pdf,.txt,.md,.json,.csv"
           />
+          
+          {/* Builder Mode Component */}
+          <div className="flex w-full flex-col gap-2 sm:w-80">
+            <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-black/30 p-3">
+              <div className="flex items-center gap-2 text-xs">
+                <Wrench className="size-4 text-primary" />
+                <span className="uppercase tracking-[0.35em] text-muted-foreground">
+                  Modo Builder disponible
+                </span>
+              </div>
+              <Link
+                to="/lab"
+                className="rounded-full border border-white/20 px-3 py-1 text-[11px] uppercase tracking-[0.35em] text-foreground transition hover:border-primary/60 hover:text-primary"
+              >
+                Abrir Laboratorio
+              </Link>
+            </div>
+          </div>
+
           <div className="relative flex-1">
             <textarea
               className="min-h-[120px] w-full resize-none rounded-3xl border border-white/10 bg-black/40 px-6 py-4 text-sm leading-relaxed text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
@@ -926,4 +956,6 @@ export function ArkaiosChat() {
       </div>
     </section>
   );
+
+
 }

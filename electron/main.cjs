@@ -14,7 +14,7 @@ try {
 let mainWindow;
 let serverProcess;
 
-const DEV_FRONT_URL = "http://localhost:5173"; // Vite
+const DEV_FRONT_URL = process.env.DEV_SERVER_URL || "http://localhost:8080"; // Vite dev
 const PROD_PORT = process.env.ELECTRON_PORT || "18080";
 const PROD_ORIGIN = `http://127.0.0.1:${PROD_PORT}`;
 
@@ -56,24 +56,28 @@ async function createWindow() {
   } else {
     // ======= PRODUCCIÓN =======
     const serverEntry = path.join(process.cwd(), "dist", "server", "node-build.mjs");
+    const frontIndex = path.join(process.cwd(), "client", "dist", "index.html");
 
-    // lanza el backend del build
-    serverProcess = spawn(process.execPath, [serverEntry], {
-      cwd: process.cwd(),
-      stdio: "inherit",
-      env: {
-        ...process.env,
-        PORT: PROD_PORT,
-        SERVE_STATIC: "true" // tu server servirá también el front build
-      }
-    });
+    try {
+      // Intenta levantar el backend de producción que sirve también el front
+      serverProcess = spawn(process.execPath, [serverEntry], {
+        cwd: process.cwd(),
+        stdio: "inherit",
+        env: {
+          ...process.env,
+          PORT: PROD_PORT,
+          SERVE_STATIC: "true",
+        },
+      });
 
-    // espera que el backend esté listo
-    await waitFor(`${PROD_ORIGIN}/health`);
-
-    // carga la app ya servida por el backend
-    await mainWindow.loadURL(PROD_ORIGIN);
-    mainWindow.show();
+      await waitFor(`${PROD_ORIGIN}/health`);
+      await mainWindow.loadURL(PROD_ORIGIN);
+      mainWindow.show();
+    } catch (err) {
+      // Fallback: cargar directamente el build del front si el backend no existe
+      await mainWindow.loadFile(frontIndex);
+      mainWindow.show();
+    }
   }
 
   mainWindow.on("closed", () => {

@@ -25,3 +25,9 @@ dist-ssr
 
 .config/
 !.env
+ 
+# Build artifacts and temporary content
+temp_extract/
+*.zip
+vscode_Interface/*.zip
+server/*.zip

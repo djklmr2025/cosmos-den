@@ -1,5 +1,4 @@
 import type { Request, Response } from "express";
-import fetch from "node-fetch";
 import dotenv from "dotenv";
 import type { ChatRequest, ChatResponse } from "../../shared/api";
 
@@ -26,7 +25,7 @@ export async function handleAiChat(req: Request, res: Response) {
       params: { objective: body.prompt }
     };
 
-    const response = await fetch(GATEWAY_URL!, {
+    const response = await (globalThis as any).fetch(GATEWAY_URL!, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
