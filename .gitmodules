@@ -1,0 +1,6 @@
+[submodule "arkaios-lab-starter"]
+	path = arkaios-lab-starter
+	url = https://github.com/djklmr2025/arkaios-lab-starter.git
+[submodule "builderOS_Lab"]
+	path = builderOS_Lab
+	url = https://github.com/djklmr2025/builderOS_Lab.git
