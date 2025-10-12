@@ -1,4 +1,6 @@
 import "dotenv/config";
+import path from "path";
+import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
@@ -8,6 +10,13 @@ import { handleTerminalRun } from "./routes/terminal";
 import { mcpHealth, mcpChat } from "./routes/mcp";
 
 export function createServer() {
+  // Carga adicional: server/.env primero (si existe), luego .env raíz
+  try {
+    const serverEnvPath = path.resolve(process.cwd(), "server", ".env");
+    dotenv.config({ path: serverEnvPath });
+  } catch {}
+  // Ya se cargó .env de raíz por "dotenv/config"
+
   const app = express();
 
   // Middleware
