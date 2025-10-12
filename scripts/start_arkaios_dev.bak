@@ -1,0 +1,40 @@
+param(
+  [int]$Port = 8081,
+  [string]$Host = "127.0.0.1",
+  [string]$ProjectPath = "C:\Users\djklm\Desktop\ARKAIOS\cosmos-den",
+  [switch]$NewWindow
+)
+
+Write-Host "=== ARKAIOS: Start dev (Vite) en $Host:$Port ===" -ForegroundColor Cyan
+
+# 1) Matar procesos Node comunes previos
+$names = @('node','nodemon','pm2','npm','pnpm','yarn','vite','next','webpack','webpack-dev-server','ts-node','esbuild')
+foreach ($n in $names) {
+  Stop-Process -Name $n -ErrorAction SilentlyContinue -Force
+}
+
+# 2) Verificar puerto libre
+$pid = (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue).OwningProcess
+if ($pid) {
+  Write-Warning "El puerto $Port estaba ocupado por PID $pid. Matando..."
+  Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Milliseconds 600
+}
+
+# 3) Recordatorio de Vite
+Write-Host "Recuerda en vite.config.ts -> server: { host: '$Host', port: $Port, strictPort: true, open: false }" -ForegroundColor Yellow
+
+# 4) Iniciar pnpm dev
+if (-not (Test-Path $ProjectPath)) {
+  Write-Error "Ruta no encontrada: $ProjectPath"
+  exit 1
+}
+
+$cmd = "cd `"$ProjectPath`"; pnpm dev"
+if ($NewWindow) {
+  Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-Command", $cmd
+  Write-Host "Dev lanzado en nueva ventana. URL: http://$Host`:$Port/" -ForegroundColor Green
+} else {
+  Write-Host "Lanzando pnpm dev en esta ventana..." -ForegroundColor Green
+  Invoke-Expression $cmd
+}
