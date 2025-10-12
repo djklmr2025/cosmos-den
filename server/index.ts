@@ -5,6 +5,7 @@ import { handleDemo } from "./routes/demo";
 import { handleAiChat } from "./routes/ai-chat";
 import { fsList, fsRead, fsWrite, fsAppend, fsMkdir, fsUpload, fsClear, fsDelete } from "./routes/fs";
 import { handleTerminalRun } from "./routes/terminal";
+import { mcpHealth, mcpChat } from "./routes/mcp";
 
 export function createServer() {
   const app = express();
@@ -24,6 +25,10 @@ export function createServer() {
 
   // Chat AI (Gateway)
   app.post("/api/chat", handleAiChat);
+
+  // MCP (runtime alterno)
+  app.post("/api/mcp/health", mcpHealth);
+  app.post("/api/mcp/chat", mcpChat);
 
   // File System (local workspace)
   app.post("/fs/list", fsList);
