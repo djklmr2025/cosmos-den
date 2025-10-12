@@ -48,6 +48,26 @@ export default function Lab() {
     setAiLog((prev) => [...prev, `[${hh}] ${msg}`]);
   };
 
+  function getMonacoLanguageFromPath(p?: string) {
+    const path = p || "";
+    if (/\.txt$/i.test(path)) return "plaintext";
+    if (/\.(md|markdown)$/i.test(path)) return "markdown";
+    if (/\.json$/i.test(path)) return "json";
+    if (/\.ya?ml$/i.test(path)) return "yaml";
+    if (/\.ts$/i.test(path)) return "typescript";
+    if (/\.tsx$/i.test(path)) return "typescript";
+    if (/\.js$/i.test(path)) return "javascript";
+    if (/\.jsx$/i.test(path)) return "javascript";
+    if (/\.c$/i.test(path)) return "c";
+    if (/\.cpp$/i.test(path)) return "cpp";
+    if (/\.h$/i.test(path)) return "cpp";
+    if (/\.py$/i.test(path)) return "python";
+    if (/\.html?$/i.test(path)) return "html";
+    if (/\.css$/i.test(path)) return "css";
+    if (/\.sh$/i.test(path)) return "shell";
+    return "plaintext";
+  }
+
   // Cargar el árbol raíz
   useEffect(() => {
     void loadDir(".");
@@ -745,7 +765,7 @@ export default function Lab() {
               ) : (
                 <Editor
                   height="100%"
-                  defaultLanguage="typescript"
+                  language={getMonacoLanguageFromPath(activeTab.path)}
                   path={activeTab.path}
                   value={activeTab.content}
                   onMount={(editor) => { editorRef.current = editor; }}

@@ -5,12 +5,16 @@ import { createServer } from "./server";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Permitir configurar puerto vía env y caer al siguiente si ocupado
+  // Nota: HMR se alinea con el puerto elegido
+  // Usa PORT o 8081 por defecto
+  // Si el puerto está ocupado, strictPort=false permite fallback automático
   server: {
     host: "127.0.0.1",
-    port: 8081,
-    strictPort: true,
+    port: Number(process.env.PORT || 8081),
+    strictPort: false,
     open: false,
-    hmr: { host: "127.0.0.1", port: 8081 },
+    hmr: { host: "127.0.0.1", port: Number(process.env.PORT || 8081) },
     fs: {
       allow: [
         path.resolve(__dirname, "."),
