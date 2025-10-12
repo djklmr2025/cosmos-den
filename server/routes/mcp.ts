@@ -19,3 +19,12 @@ export async function mcpChat(req: Request, res: Response) {
     res.status(500).json({ ok: false, error: e.message || String(e) });
   }
 }
+
+export async function mcpRestart(_req: Request, res: Response) {
+  try {
+    await mcpManager.restart();
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, error: e.message || String(e) });
+  }
+}

@@ -90,6 +90,22 @@ export class MCPManager {
     this.starting = false;
   }
 
+  async restart() {
+    // Termina el proceso hijo si está activo y limpia estado
+    if (this.child) {
+      try { this.child.kill(); } catch {}
+    }
+    // Rechazar cualquier pendiente
+    while (this.queue.length) {
+      const p = this.queue.shift()!;
+      p.reject(new Error("Reiniciado MCP runtime"));
+    }
+    this.buffer = "";
+    this.child = null;
+    // Arranca nuevamente con el entorno actual
+    await this.start();
+  }
+
   async send(command: string, params: any = {}): Promise<any> {
     await this.start();
     if (!this.child) throw new Error("MCP runtime no iniciado");

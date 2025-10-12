@@ -4,10 +4,11 @@ import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
+import { handleHealth } from "./routes/health";
 import { handleAiChat } from "./routes/ai-chat";
 import { fsList, fsRead, fsWrite, fsAppend, fsMkdir, fsUpload, fsClear, fsDelete } from "./routes/fs";
 import { handleTerminalRun } from "./routes/terminal";
-import { mcpHealth, mcpChat } from "./routes/mcp";
+import { mcpHealth, mcpChat, mcpRestart } from "./routes/mcp";
 
 export function createServer() {
   // Carga adicional: server/.env primero (si existe), luego .env raíz
@@ -31,6 +32,9 @@ export function createServer() {
   });
 
   app.get("/api/demo", handleDemo);
+  // Health endpoints para compatibilidad (MCP usa /health)
+  app.get("/api/health", handleHealth);
+  app.get("/health", handleHealth);
 
   // Chat AI (Gateway)
   app.post("/api/chat", handleAiChat);
@@ -38,6 +42,7 @@ export function createServer() {
   // MCP (runtime alterno)
   app.post("/api/mcp/health", mcpHealth);
   app.post("/api/mcp/chat", mcpChat);
+  app.post("/api/mcp/restart", mcpRestart);
 
   // File System (local workspace)
   app.post("/fs/list", fsList);
