@@ -1,0 +1,23 @@
+{
+  "name": "arkaios-lab-starter",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10",
+  "workspaces": [
+    "apps/*",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently -k \"pnpm --filter @arkaios/api dev\" \"pnpm --filter @arkaios/ui dev\"",
+    "build": "pnpm -r build",
+    "start": "pnpm --filter @arkaios/api start",
+    "electron:dev": "pnpm --filter @arkaios/electron electron:dev",
+    "build:electron": "pnpm --filter @arkaios/electron build:electron"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.2"
+  }
+}

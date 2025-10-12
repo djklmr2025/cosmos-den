@@ -1,0 +1,23 @@
+{
+  "projectName": "ARKAIOS cosmos-den",
+  "root": "C:\\Users\\djklm\\Desktop\\ARKAIOS\\cosmos-den",
+  "entryScripts": {
+    "start": ".\\scripts\\start_arkaios_dev.ps1",
+    "stop": ".\\scripts\\stop_arkaios_dev.ps1",
+    "lockFirewall": ".\\scripts\\lock_node_firewall.ps1",
+    "unlockFirewall": ".\\scripts\\unlock_node_firewall.ps1"
+  },
+  "safeRun": {
+    "requireApproval": true,
+    "allowedPorts": [
+      8081
+    ],
+    "host": "127.0.0.1"
+  },
+  "notes": [
+    "Paquete para orientar a Codex CLI (root, scripts, puertos permitidos).",
+    "Ejecuta start_arkaios_dev.ps1 para levantar el dev server en 127.0.0.1:8081.",
+    "Usa lock_node_firewall.ps1 si quieres bloquear todo el tráfico de node.exe excepto loopback:8081.",
+    "No modifica vite.config.ts automáticamente; revisa la configuración recomendada."
+  ]
+}
