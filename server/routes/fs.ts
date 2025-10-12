@@ -59,6 +59,24 @@ export async function fsWrite(req: Request, res: Response) {
   }
 }
 
+// Appendir contenido al final de un archivo dentro del workspace
+export async function fsAppend(req: Request, res: Response) {
+  try {
+    const { path: rel, content = "", ensureNewline = true } = req.body || {};
+    if (!rel) return res.status(400).json({ ok: false, error: "Falta 'path'" });
+    const abs = resolveSafe(rel);
+    const dir = path.dirname(abs);
+    fs.mkdirSync(dir, { recursive: true });
+    const exists = fs.existsSync(abs);
+    const prev = exists ? fs.readFileSync(abs, "utf-8") : "";
+    const next = prev + (ensureNewline && prev && !prev.endsWith("\n") ? "\n" : "") + content;
+    fs.writeFileSync(abs, next, "utf-8");
+    res.json({ ok: true, path: rel });
+  } catch (e: any) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+}
+
 export async function fsMkdir(req: Request, res: Response) {
   try {
     const { path: rel } = req.body || {};

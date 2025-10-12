@@ -33,6 +33,17 @@ export async function apiFsWrite(pathRel: string, content: string) {
   return true;
 }
 
+export async function apiFsAppend(pathRel: string, content: string) {
+  const res = await fetch("/fs/append", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: pathRel, content, ensureNewline: true }),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "Error append");
+  return true;
+}
+
 export async function apiFsMkdir(pathRel: string) {
   const res = await fetch("/fs/mkdir", {
     method: "POST",

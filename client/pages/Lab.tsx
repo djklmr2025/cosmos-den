@@ -3,6 +3,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Editor } from "@monaco-editor/react";
 import { BuilderMode } from "@/components/builder-mode";
 import { cn } from "@/lib/utils";
+import { apiFsAppend } from "@/lib/fs";
 import { Folder, FileText, RefreshCw, Save, Terminal as TerminalIcon, ChevronRight, ChevronDown, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 // Chat deshabilitado en el panel derecho del Lab por usabilidad
@@ -288,6 +289,7 @@ export default function Lab() {
   }
 
   const activeTab = useMemo(() => tabs.find((t) => t.path === activePath) ?? null, [tabs, activePath]);
+  const editorRef = useRef<any>(null);
 
   function renderTree(node: TreeItem | null): JSX.Element | null {
     if (!node) return null;
@@ -524,16 +526,31 @@ export default function Lab() {
         const path = (parsed as any).filename;
         const add = (parsed as any).content || '';
         logAi(`Append archivo: ${path} (+${add.length} bytes)`);
-        const rd = await apiJson('/fs/read', { path });
-        if (!rd?.ok) throw new Error(rd?.error || 'No se pudo leer archivo antes de append');
-        const current = rd.content || '';
+        // Usar buffer en memoria si el archivo está abierto, para evitar perder cambios locales
+        const current = (activeTab && activeTab.path === path) ? (activeTab.content || '') : ((await apiJson('/fs/read', { path }))?.content || '');
         const newContent = current + (current.endsWith('\n') ? '' : '\n') + add;
-        const wr = await apiJson('/fs/write', { path, content: newContent });
-        if (!wr?.ok) throw new Error(wr?.error || 'No se pudo escribir el archivo');
+        // Persistir vía /fs/append (atómico en servidor)
+        await apiFsAppend(path, add);
+        // Refrescar UI inmediatamente si el archivo está abierto
+        if (activeTab && activeTab.path === path) {
+          setTabs((prev) => prev.map((t) => (t.path === path ? { ...t, content: newContent, dirty: false } : t)));
+          // Mover cursor al final para ver el texto agregado
+          try {
+            const ed = editorRef.current;
+            const model = ed?.getModel?.();
+            if (ed && model) {
+              const lineNumber = model.getLineCount();
+              const column = model.getLineMaxColumn(lineNumber);
+              ed.setPosition({ lineNumber, column });
+              ed.focus();
+            }
+          } catch {}
+        } else {
+          await openFile(path);
+        }
         setCompactReply(`Texto agregado a: ${path}`);
         setCompactResult({ action: 'append-file', path, content: add });
         await loadDir('.');
-        await openFile(path);
         setTermOut((prev) => `${prev}\n[builder] append ${path} (+${add.length} bytes)`);
       } else if (parsed.action === "overwrite-file") {
         const path = (parsed as any).filename;
@@ -731,6 +748,7 @@ export default function Lab() {
                   defaultLanguage="typescript"
                   path={activeTab.path}
                   value={activeTab.content}
+                  onMount={(editor) => { editorRef.current = editor; }}
                   onChange={(val) => {
                     const content = val ?? "";
                     setTabs((prev) =>
