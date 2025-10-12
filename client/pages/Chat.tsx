@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 // Importamos componentes de tu librería UI para mantener la consistencia visual
 import { Button } from '@/components/ui/button'; 
 import { Input } from '@/components/ui/input'; 
+import { useChatGateway } from "@/modules/chat";
 
 // Definición de tipos para los mensajes
 interface Message {
@@ -17,6 +18,7 @@ const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { send } = useChatGateway();
   
   // Referencia para desplazar automáticamente al final del chat
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -45,19 +47,8 @@ const Chat = () => {
     });
 
     try {
-      // 3. Llama a la ruta de Express que hemos creado (/api/chat)
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMessage })
-      });
-
-      if (!response.ok) throw new Error("Server/Gateway error");
-      
-      const data = await response.json();
-      
-      // Obtiene el texto de respuesta (puede ser data.output o el objeto completo)
-      const aiResponseText = data.output || JSON.stringify(data, null, 2);
+      // 3. Enviamos vía Gateway usando el hook del módulo
+      const aiResponseText = await send(userMessage);
 
       // 4. Reemplaza el mensaje de "procesando" por la respuesta real de la IA
       setMessages(prev => prev.map((msg, index) => 

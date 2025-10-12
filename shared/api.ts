@@ -10,3 +10,16 @@
 export interface DemoResponse {
   message: string;
 }
+
+/**
+ * Chat request/response types for the Gateway-backed /api/chat route
+ */
+export interface ChatRequest {
+  prompt: string;
+}
+
+export interface ChatResponse {
+  reply: string;
+  status: number;
+  error?: string;
+}
