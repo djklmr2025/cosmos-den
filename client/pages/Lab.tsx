@@ -4,6 +4,7 @@ import { Editor } from "@monaco-editor/react";
 import { BuilderMode } from "@/components/builder-mode";
 import { cn } from "@/lib/utils";
 import { apiFsAppend } from "@/lib/fs";
+import { useMcp } from "@/modules/mcp";
 import { Folder, FileText, RefreshCw, Save, Terminal as TerminalIcon, ChevronRight, ChevronDown, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 // Chat deshabilitado en el panel derecho del Lab por usabilidad
@@ -42,6 +43,11 @@ export default function Lab() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [aiLog, setAiLog] = useState<string[]>([]);
   const [connectedRoot, setConnectedRoot] = useState<string | null>(null);
+  const { health: mcpHealthApi, chat: mcpChatApi } = useMcp();
+  const [mcpStatus, setMcpStatus] = useState<any>(null);
+  const [mcpPrompt, setMcpPrompt] = useState<string>("");
+  const [mcpReply, setMcpReply] = useState<string>("");
+  const [mcpBusy, setMcpBusy] = useState<boolean>(false);
   const logAi = (msg: string) => {
     const ts = new Date();
     const hh = ts.toLocaleTimeString();
@@ -71,6 +77,16 @@ export default function Lab() {
   // Cargar el árbol raíz
   useEffect(() => {
     void loadDir(".");
+    // Probar health MCP al iniciar
+    (async () => {
+      try {
+        const st = await mcpHealthApi();
+        setMcpStatus(st);
+        logAi(`MCP health: ${(st?.result && (st.result.gateway?.ok ? 'gateway ok' : 'gateway fail')) || 'no data'}`);
+      } catch (e:any) {
+        logAi(`MCP health error: ${e.message || String(e)}`);
+      }
+    })();
   }, []);
 
   const findNode = (node: TreeItem | null, path: string): TreeItem | null => {
@@ -885,6 +901,61 @@ export default function Lab() {
           </div>
           <div className="flex-1 overflow-auto p-2">
             <div className="flex flex-col gap-2">
+              {/* Panel MCP */}
+              <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
+                <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-[0.35em] text-muted-foreground">
+                  <span>MCP</span>
+                  <button
+                    className="rounded-full border border-white/10 px-2 py-1 text-[10px] hover:border-primary/50 hover:text-primary"
+                    onClick={async () => {
+                      try {
+                        const st = await mcpHealthApi();
+                        setMcpStatus(st);
+                        logAi('MCP health actualizado');
+                      } catch (e:any) {
+                        alert(e.message || 'Error health');
+                      }
+                    }}
+                  >Health</button>
+                </div>
+                <div className="mb-2 text-xs text-muted-foreground">
+                  {mcpStatus ? (
+                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap">{JSON.stringify(mcpStatus.result ?? mcpStatus, null, 2)}</pre>
+                  ) : (
+                    <span>Sin datos de health</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    className="flex-1 rounded border border-white/10 bg-black/30 px-2 py-1 text-sm"
+                    placeholder="Prompt MCP…"
+                    value={mcpPrompt}
+                    onChange={(e) => setMcpPrompt(e.target.value)}
+                  />
+                  <button
+                    className="rounded border border-white/10 px-3 py-1 text-xs hover:border-primary/50 hover:text-primary disabled:opacity-50"
+                    onClick={async () => {
+                      if (!mcpPrompt.trim()) return;
+                      setMcpBusy(true);
+                      setMcpReply('');
+                      try {
+                        const out = await mcpChatApi(mcpPrompt.trim());
+                        const text = JSON.stringify(out.result ?? out, null, 2);
+                        setMcpReply(text);
+                        logAi('MCP chat ejecutado');
+                      } catch (e:any) {
+                        setMcpReply(`Error: ${e.message || String(e)}`);
+                      } finally {
+                        setMcpBusy(false);
+                      }
+                    }}
+                    disabled={mcpBusy || mcpPrompt.trim().length === 0}
+                  >{mcpBusy ? 'Enviando…' : 'Enviar'}</button>
+                </div>
+                {mcpReply && (
+                  <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">{mcpReply}</pre>
+                )}
+              </div>
               <textarea
                 className="min-h-[160px] w-full resize-y rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                 placeholder={activeTab ? `Instrucciones para ${activeTab.path}…` : 'Escribe una instrucción breve…'}
