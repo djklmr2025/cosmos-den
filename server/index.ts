@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
 import { handleAiChat } from "./routes/ai-chat";
+import { handleHealth } from "./routes/health";
 import { fsList, fsRead, fsWrite, fsMkdir, fsUpload, fsClear, fsDelete } from "./routes/fs";
 import { handleTerminalRun } from "./routes/terminal";
 
@@ -24,6 +25,9 @@ export function createServer() {
 
   // Chat AI (Gateway)
   app.post("/api/chat", handleAiChat);
+
+  // Health endpoint for readiness/liveness checks
+  app.get("/health", handleHealth);
 
   // File System (local workspace)
   app.post("/fs/list", fsList);

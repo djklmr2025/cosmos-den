@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: arkaios-api-bridge
+    env: node
+    plan: free
+    buildCommand: corepack enable && pnpm i -w --no-frozen-lockfile && pnpm build:server
+    startCommand: node dist/server/production.mjs
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AIDA_GATEWAY_URL
+        value: https://arkaios-gateway-open.onrender.com/aida/gateway
+      - key: AIDA_AUTH_TOKEN
+        sync: false
+      - key: ALLOW_ORIGIN
+        value: "*"

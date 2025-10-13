@@ -31,3 +31,5 @@ temp_extract/
 *.zip
 vscode_Interface/*.zip
 server/*.zip
+
+.vercel
