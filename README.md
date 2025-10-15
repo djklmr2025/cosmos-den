@@ -303,3 +303,8 @@ STDIO:
   }
 }
 ```
+
+
+## Enlace rápido MCP
+
+- Carpeta: [builderOS_Lab/SERVER MCP](builderOS_Lab/SERVER%20MCP/)
