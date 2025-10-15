@@ -33,3 +33,10 @@ vscode_Interface/*.zip
 server/*.zip
 
 .vercel
+ 
+# Local dev artifacts
+local-worker-test.html
+data/memory.json
+
+# Temporary worker zips
+tmp_worker_zip*/
