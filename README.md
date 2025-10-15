@@ -272,6 +272,8 @@ AEIO-MR es **completamente libre y open source** bajo la licencia MIT modificada
 
 ## Conexión MCP (TRAE)  JSON mínimo
 
+- Carpeta: [builderOS_Lab/SERVER MCP](builderOS_Lab/SERVER%20MCP/)
+
 HTTP:
 
 ```json
@@ -303,8 +305,3 @@ STDIO:
   }
 }
 ```
-
-
-## Enlace rápido MCP
-
-- Carpeta: [builderOS_Lab/SERVER MCP](builderOS_Lab/SERVER%20MCP/)
