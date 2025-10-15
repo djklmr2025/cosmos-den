@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 // Importamos componentes de tu librería UI para mantener la consistencia visual
 import { Button } from '@/components/ui/button'; 
 import { Input } from '@/components/ui/input'; 
+import MediaGenerator from '@/components/MediaGenerator';
 
 // Definición de tipos para los mensajes
 interface Message {
@@ -101,6 +102,8 @@ const Chat = () => {
         {/* Elemento vacío para hacer scroll */}
         <div ref={messagesEndRef} />
       </div>
+      {/* Panel de generación de medios (Imagen/Video) */}
+      <MediaGenerator />
       <form onSubmit={sendMessage} className="flex mt-6">
         <Input
           type="text"
