@@ -268,3 +268,38 @@ AEIO-MR es **completamente libre y open source** bajo la licencia MIT modificada
 
 
 
+
+
+## Conexión MCP (TRAE)  JSON mínimo
+
+HTTP:
+
+```json
+{
+  "mcpHttpServers": {
+    "arkaios-mcp-http": {
+      "url": "http://localhost:8090/mcp"
+    }
+  }
+}
+```
+
+STDIO:
+
+```json
+{
+  "mcpServers": {
+    "arkaios-mcp": {
+      "command": "node",
+      "args": ["apps/mcp/server.mjs"],
+      "cwd": "c:\\Users\\djklm\\Desktop\\ARKAIOS\\cosmos-den\\arkaios-lab-starter",
+      "env": {
+        "AIDA_GATEWAY_URL": "https://arkaios-gateway-open.onrender.com/aida/gateway",
+        "AIDA_AUTH_TOKEN": "",
+        "LOCAL_BASE": "http://127.0.0.1:3000"
+      },
+      "autoStart": true
+    }
+  }
+}
+```
