@@ -134,7 +134,7 @@ export function ArkaiosChat() {
       id: generateId(),
       role: "assistant",
       content:
-        "👋 Bienvenido. ARKAIOS opera con GPT-4 mediante Puter.js y puede adjuntar archivos, imágenes o comandos especiales. Si lo indicas, sincronizaremos la respuesta con A.I.D.A. para respaldo estratégico.",
+        "👋 Bienvenido. ARKAIOS opera con servicios de IA y puede adjuntar archivos, imágenes o comandos especiales. Si lo indicas, sincronizaremos la respuesta con A.I.D.A. para respaldo estratégico.",
       timestamp: Date.now(),
     },
   ]);
@@ -146,6 +146,7 @@ export function ArkaiosChat() {
   const [gatewayStatus, setGatewayStatus] = useState<ConnectionState>("idle");
   const [syncWithAida, setSyncWithAida] = useState(true);
   const [selectedModel, setSelectedModel] = useState<"gpt-4o" | "gpt-4.1">("gpt-4.1");
+  const [aidaThinking, setAidaThinking] = useState(false);
 
   const listRef = useRef<HTMLUListElement>(null);
   const historyRef = useRef<ConversationRecord[]>([]);
@@ -308,7 +309,7 @@ export function ArkaiosChat() {
         setPuterStatus("online");
         pushMessage({
           role: "system",
-          content: "✅ Núcleo Puter.js cargado correctamente. GPT-4 disponible.",
+          content: "✅ Núcleo de servicio de IA cargado correctamente.",
         });
         return;
       }
@@ -319,10 +320,10 @@ export function ArkaiosChat() {
     setPuterStatus("error");
     pushMessage({
       role: "system",
-      content: "🚨 No fue posible inicializar Puter.js. Verifica tu conexión o recarga la interfaz.",
+      content: "🚨 No fue posible inicializar el servicio de IA. Verifica tu conexión o recarga la interfaz.",
       error: true,
     });
-    throw new Error("Puter.js no disponible");
+    throw new Error("Servicio de IA no disponible");
   };
 
   const verifyModel = async (model: "gpt-4o" | "gpt-4.1") => {
@@ -370,6 +371,7 @@ export function ArkaiosChat() {
     }
 
     setGatewayStatus("connecting");
+    setAidaThinking(true);
 
     try {
       const response = await fetch(gatewayUrl, {
@@ -392,26 +394,44 @@ export function ArkaiosChat() {
       }
 
       const data = await response.json();
-      const payload = data.output ?? data.result ?? data.response ?? JSON.stringify(data, null, 2);
+      const payload = data.output ?? data.result ?? data.response ?? data;
+      // Guardamos la conversación con A.I.D.A. en memoria del servidor sin mostrarla en el chat
+      try {
+        await fetch(`/memory`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: `aida-sync-${Date.now()}`,
+            value: {
+              prompt,
+              payload,
+              timestamp: Date.now(),
+            },
+          }),
+        });
+      } catch {}
 
       setGatewayStatus("online");
-      pushMessage({
-        role: "assistant",
-        content:
-          typeof payload === "string"
-            ? payload
-            : JSON.stringify(payload, null, 2),
-        delegated: true,
-        timestamp: Date.now(),
-      });
     } catch (error) {
       setGatewayStatus("error");
-      pushMessage({
-        role: "assistant",
-        content: `🚨 A.I.D.A. no respondió correctamente: ${(error as Error).message}`,
-        error: true,
-        delegated: true,
-      });
+      // Registramos el error de sincronización sin mostrarlo en el timeline
+      try {
+        await fetch(`/memory`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: `aida-sync-error-${Date.now()}`,
+            value: {
+              prompt,
+              error: String((error as Error)?.message || error),
+              timestamp: Date.now(),
+            },
+          }),
+        });
+      } catch {}
+    }
+    finally {
+      setAidaThinking(false);
     }
   };
 
@@ -615,7 +635,7 @@ export function ArkaiosChat() {
 
     const placeholder = pushMessage({
       role: "assistant",
-      content: `Contactando GPT-4${selectedModel === "gpt-4.1" ? ".1" : "o"} a través de Puter.js...`,
+      content: "Contactando servicio de IA...",
     });
 
     try {
@@ -647,7 +667,7 @@ export function ArkaiosChat() {
       await delegateToAida(assistantText);
     } catch (error) {
       updateMessage(placeholder.id, {
-        content: `🚨 Error comunicando con Puter.js: ${(error as Error).message}`,
+        content: `🚨 Error comunicando con servicio de IA: ${(error as Error).message}`,
         error: true,
       });
       historyRef.current.push({
@@ -738,29 +758,28 @@ export function ArkaiosChat() {
             <p className="text-xs uppercase tracking-[0.5em] text-muted-foreground">Interfaz consciente</p>
             <h2 className="font-display text-3xl text-foreground">Canal operativo «ARKAIOS»</h2>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Terminal híbrida conectada a GPT-4 a través de Puter.js. Opcionalmente sincroniza la respuesta con la
+              Terminal híbrida conectada a servicios de IA. Opcionalmente sincroniza la respuesta con la
               inteligencia estratégica de A.I.D.A. para asegurar continuidad operativa.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {statusChip("Puter.js", puterStatus)}
-            {statusChip("Modelo", aiStatus)}
-            {statusChip("A.I.D.A.", gatewayStatus === "idle" && !syncWithAida ? "idle" : gatewayStatus)}
-          </div>
-        </header>
+        <div className="flex flex-wrap items-center gap-3">
+          {statusChip("Servicio IA", puterStatus)}
+          {statusChip("Modelo", aiStatus)}
+          {statusChip("A.I.D.A.", gatewayStatus === "idle" && !syncWithAida ? "idle" : gatewayStatus)}
+        </div>
+      </header>
+
+      {aidaThinking ? (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs uppercase tracking-[0.45em] text-muted-foreground">
+          <Loader2 className="size-3 animate-spin" />
+          <span>Pensando…</span>
+        </div>
+      ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-white/10 bg-black/40 p-4">
-          <label className="flex items-center gap-3 text-xs uppercase tracking-[0.5em] text-muted-foreground">
-            Modelo activo
-            <select
-              value={selectedModel}
-              onChange={(event) => setSelectedModel(event.target.value as "gpt-4o" | "gpt-4.1")}
-              className="rounded-full border border-white/10 bg-black/40 px-4 py-1 text-[11px] uppercase tracking-[0.5em] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-            >
-              <option value="gpt-4.1">GPT-4.1 (Puter)</option>
-              <option value="gpt-4o">GPT-4o (Puter)</option>
-            </select>
-          </label>
+          <div className="text-xs uppercase tracking-[0.5em] text-muted-foreground">
+            Modelo activo: gpt-4.1
+          </div>
           <button
             type="button"
             onClick={() => {

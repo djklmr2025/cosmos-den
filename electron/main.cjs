@@ -56,7 +56,7 @@ async function createWindow() {
   } else {
     // ======= PRODUCCIÓN =======
     const serverEntry = path.join(process.cwd(), "dist", "server", "node-build.mjs");
-    const frontIndex = path.join(process.cwd(), "client", "dist", "index.html");
+    const frontIndex = path.join(process.cwd(), "dist", "spa", "index.html");
 
     try {
       // Intenta levantar el backend de producción que sirve también el front

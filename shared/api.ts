@@ -10,3 +10,22 @@
 export interface DemoResponse {
   message: string;
 }
+
+/**
+ * Contractos compartidos para /api/chat
+ */
+export interface ChatRequest {
+  /** Prompt principal u objetivo de la tarea */
+  prompt: string;
+  /** Contexto opcional (metadata estructurada que el gateway/IA puede usar) */
+  context?: Record<string, any>;
+}
+
+export interface ChatResponse {
+  /** Texto de respuesta del gateway/IA */
+  reply: string;
+  /** Código de estado HTTP reflejado en la respuesta */
+  status: number;
+  /** Mensaje de error (si aplica) */
+  error?: string;
+}

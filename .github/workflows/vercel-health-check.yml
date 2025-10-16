@@ -1,0 +1,57 @@
+name: Vercel Health Check
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *" # cada hora
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Enable Corepack (pnpm)
+        run: corepack enable
+
+      - name: Install deps
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Run preview health check (bypass)
+        env:
+          VERCEL_DOMAIN: ${{ secrets.VERCEL_PREVIEW_DOMAIN }}
+          VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
+          HEALTH_PATH: /api/health
+        run: pnpm health:vercel:preview
+
+  production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Enable Corepack (pnpm)
+        run: corepack enable
+
+      - name: Install deps
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Run production health check (public)
+        env:
+          VERCEL_DOMAIN: ${{ secrets.VERCEL_PROD_DOMAIN }}
+          HEALTH_PATH: /api/health
+          BYPASS_OPTIONAL: '1'
+        run: pnpm health:vercel:prod

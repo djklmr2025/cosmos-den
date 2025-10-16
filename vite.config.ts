@@ -7,10 +7,10 @@ import { createServer } from "./server";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "127.0.0.1",
-    port: 8081,
+    port: 8082,
     strictPort: true,
     open: false,
-    hmr: { host: "127.0.0.1", port: 8081 },
+    hmr: { host: "127.0.0.1", port: 8082 },
     fs: {
       allow: [
         path.resolve(__dirname, "."),

@@ -176,6 +176,9 @@ export default function Index() {
     <Link to="/lab" className="transition hover:text-primary">
       Laboratorio
     </Link>
+    <Link to="/todo" className="transition hover:text-primary">
+      Todo
+    </Link>
   </nav>
           <button
             type="button"
@@ -431,9 +434,9 @@ export default function Index() {
                 Protocolos activos
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                Revisión de sistemas críticos desplegados por MEMEX. Cada módulo
-                supervisa la integridad de tu espacio operativo y registra
-                eventos en el panel superior.
+                Revisión de sistemas críticos del núcleo. Cada módulo supervisa
+                la integridad de tu espacio operativo y registra eventos en el
+                panel superior.
               </p>
             </div>
             <div className="grid gap-6 md:grid-cols-3">
@@ -471,12 +474,11 @@ export default function Index() {
           <div className="container mx-auto flex flex-col gap-8 px-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-xl">
               <h2 className="font-display text-2xl uppercase tracking-[0.4em] text-foreground">
-                ¿Necesitas asistencia?
+                Soporte Arkaios
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                Si la IA de MEMEX detiene el enlace por consumo de tokens,
-                reactiva los servicios y despliega nuevamente. Vuelve a ejecutar
-                el diagnóstico desde este panel una vez que el backend responda.
+                ¿Necesitas ayuda? Nuestro equipo puede asistirte con la puesta
+                en marcha y dudas operativas del núcleo.
               </p>
             </div>
             <a

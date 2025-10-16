@@ -11,6 +11,7 @@ import XR from "./pages/XR";
 import NotFound from "./pages/NotFound";
 import Workbench from "./pages/Workbench";
 import Lab from "./pages/Lab";
+import Todo from "./pages/Todo";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/workbench" element={<Workbench />} />
           <Route path="/xr" element={<XR />} />
           <Route path="/lab" element={<Lab />} />
+          <Route path="/todo" element={<Todo />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

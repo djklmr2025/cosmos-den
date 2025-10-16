@@ -1,5 +1,9 @@
 import type { Request, Response } from "express";
 import dotenv from "dotenv";
+import path from "path";
+import fs from "fs";
+import { spawn } from "child_process";
+import ffmpegPath from "ffmpeg-static";
 
 dotenv.config();
 
@@ -137,6 +141,199 @@ const jobs = new Map<
 
 function makeJobId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+// Workspace para archivos temporales y convertidos
+const WORKSPACE = path.resolve(process.env.ARK_WORKSPACE || path.join(process.cwd(), "data", "workspace"));
+const MEDIA_DIR = path.join(WORKSPACE, "media");
+try { fs.mkdirSync(MEDIA_DIR, { recursive: true }); } catch {}
+
+function safeJoinMedia(filename: string) {
+  const abs = path.resolve(MEDIA_DIR, filename);
+  if (!abs.startsWith(MEDIA_DIR)) throw new Error("Ruta fuera de media dir");
+  return abs;
+}
+
+function bufferFromBase64(base64: string) {
+  const clean = base64.includes(",") ? base64.split(",")[1] : base64;
+  return Buffer.from(clean, "base64");
+}
+
+async function writeBufferToFile(buf: Buffer, rel: string) {
+  const abs = safeJoinMedia(rel);
+  await fs.promises.mkdir(path.dirname(abs), { recursive: true });
+  await fs.promises.writeFile(abs, buf);
+  return abs;
+}
+
+async function downloadToFile(url: string, rel: string) {
+  const resp = await (globalThis as any).fetch(url);
+  if (!resp.ok) throw new Error(`No se pudo descargar: ${resp.status}`);
+  const arr = await resp.arrayBuffer();
+  const buf = Buffer.from(arr);
+  return await writeBufferToFile(buf, rel);
+}
+
+async function convertWebmToMp4(inputAbs: string, outputAbs: string) {
+  return await new Promise<{ ok: boolean; code: number; stderr: string }>((resolve) => {
+    // Resolver binario de ffmpeg: usar estático si existe; si no, fallback a PATH
+    const ffBin = (() => {
+      try {
+        if (ffmpegPath && typeof ffmpegPath === "string" && fs.existsSync(ffmpegPath)) {
+          return ffmpegPath;
+        }
+      } catch {}
+      return "ffmpeg";
+    })();
+
+    try {
+      console.log(`[media.convert] ffBin`, ffBin);
+    } catch {}
+
+    const args = [
+      "-y",
+      "-i",
+      inputAbs,
+      "-an",
+      "-vf",
+      "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "23",
+      "-movflags",
+      "+faststart",
+      "-pix_fmt",
+      "yuv420p",
+      outputAbs,
+    ];
+
+    const child = spawn(ffBin, args, { windowsHide: true });
+    let stderr = "";
+    child.stderr.on("data", (d) => (stderr += d.toString()));
+    child.on("error", (err) => {
+      // Si falla el binario (por ejemplo ENOENT), probamos con ffmpeg del PATH y, si es necesario, usamos fallback mpeg4
+      if (ffBin !== "ffmpeg") {
+        const child2 = spawn("ffmpeg", args, { windowsHide: true });
+        let stderr2 = "";
+        child2.stderr.on("data", (d) => (stderr2 += d.toString()));
+        child2.on("close", (code2) => {
+          if (code2 === 0) return resolve({ ok: true, code: code2, stderr: stderr2 });
+          const argsFallback = [
+            "-y",
+            "-i",
+            inputAbs,
+            "-an",
+            "-vf",
+            "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+            "-c:v",
+            "mpeg4",
+            "-q:v",
+            "4",
+            outputAbs,
+          ];
+          const child3 = spawn("ffmpeg", argsFallback, { windowsHide: true });
+          let stderr3 = "";
+          child3.stderr.on("data", (d) => (stderr3 += d.toString()));
+          child3.on("close", (code3) => {
+            resolve({ ok: code3 === 0, code: code3, stderr: String(err) + "\n" + stderr2 + "\n" + stderr3 });
+          });
+        });
+      } else {
+        resolve({ ok: false, code: -1, stderr: String(err) });
+      }
+    });
+    child.on("close", async (code) => {
+      if (code === 0) return resolve({ ok: true, code, stderr });
+      // Fallback a mpeg4 si libx264 no está disponible
+      const argsFallback = [
+        "-y",
+        "-i",
+        inputAbs,
+        "-an",
+        "-vf",
+        "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+        "-c:v",
+        "mpeg4",
+        "-q:v",
+        "4",
+        outputAbs,
+      ];
+      const child2 = spawn(ffBin, argsFallback, { windowsHide: true });
+      let stderr2 = "";
+      child2.stderr.on("data", (d) => (stderr2 += d.toString()));
+      child2.on("close", (code2) => {
+        resolve({ ok: code2 === 0, code: code2, stderr: stderr + "\n" + stderr2 });
+      });
+    });
+  });
+}
+
+export async function handleMediaConvert(req: Request, res: Response) {
+  try {
+    const { sourceUrl, sourceBase64, targetFormat = "mp4" } = (req.body || {}) as {
+      sourceUrl?: string;
+      sourceBase64?: string; // puede venir como dataURL o base64 puro
+      targetFormat?: "mp4";
+    };
+
+    if (targetFormat !== "mp4") {
+      return res.status(400).json({ ok: false, error: "Sólo se soporta mp4" });
+    }
+    if (!sourceUrl && !sourceBase64) {
+      return res.status(400).json({ ok: false, error: "Falta sourceUrl o sourceBase64" });
+    }
+
+    const id = makeJobId();
+    const inRel = `${id}.webm`;
+    const outRel = `${id}.mp4`;
+    const inAbs = safeJoinMedia(inRel);
+    const outAbs = safeJoinMedia(outRel);
+
+    if (sourceBase64) {
+      const buf = bufferFromBase64(sourceBase64);
+      await writeBufferToFile(buf, inRel);
+    } else if (sourceUrl) {
+      await downloadToFile(sourceUrl, inRel);
+    }
+
+    const r = await convertWebmToMp4(inAbs, outAbs);
+    if (!r.ok) {
+      // Degradación elegante: si no se puede convertir (ffmpeg ausente), devolver el WebM original
+      const downloadUrlWebm = `/api/media/file/${inRel}`;
+      return res.json({ ok: true, downloadUrl: downloadUrlWebm, id, format: "webm", note: "ffmpeg no disponible, usando WebM" });
+    }
+
+    const downloadUrl = `/api/media/file/${outRel}`;
+    return res.json({ ok: true, downloadUrl, id, format: "mp4" });
+  } catch (err: any) {
+    console.error("[media.convert]", err);
+    res.status(500).json({ ok: false, error: err?.message || "Error interno" });
+  }
+}
+
+export async function handleMediaFile(req: Request, res: Response) {
+  try {
+    const name = String(req.params.name || "");
+    if (!name || !/^[\w.-]+$/.test(name)) {
+      return res.status(400).json({ ok: false, error: "Nombre inválido" });
+    }
+    const abs = safeJoinMedia(name);
+    if (!fs.existsSync(abs)) {
+      return res.status(404).json({ ok: false, error: "Archivo no encontrado" });
+    }
+    const ext = path.extname(abs).toLowerCase();
+    const ct = ext === ".mp4" ? "video/mp4" : ext === ".webm" ? "video/webm" : "application/octet-stream";
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    const stream = fs.createReadStream(abs);
+    stream.on("error", (e) => res.status(500).end(String(e)));
+    stream.pipe(res);
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || "Error interno" });
+  }
 }
 
 export async function handleMediaGenerate(req: Request, res: Response) {

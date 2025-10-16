@@ -17,18 +17,24 @@ export async function handleTerminalRun(req: Request, res: Response) {
       return res.status(400).json({ ok: false, error: `Comando no permitido: ${cmd}` });
     }
 
+    const useShell = process.platform === "win32" && cmd === "echo";
     const child = spawn(cmd, Array.isArray(args) ? args : [], {
       cwd: WORKSPACE,
-      shell: false,
+      shell: useShell,
     });
 
     let output = "";
+    let responded = false;
     child.stdout.on("data", (d) => (output += d.toString()));
     child.stderr.on("data", (d) => (output += d.toString()));
     child.on("error", (err) => {
+      if (responded) return;
+      responded = true;
       res.status(500).json({ ok: false, error: String(err.message || err) });
     });
     child.on("close", (code) => {
+      if (responded) return;
+      responded = true;
       res.json({ ok: true, code, output });
     });
   } catch (e: any) {

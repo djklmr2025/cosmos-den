@@ -8,6 +8,12 @@ import MediaGenerator from '@/components/MediaGenerator';
 interface Message {
   text: string;
   sender: 'user' | 'ai';
+  media?: {
+    type: 'image' | 'video';
+    url: string;
+    downloadUrl?: string;
+    provider?: string;
+  };
 }
 
 /**
@@ -27,6 +33,25 @@ const Chat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Escucha resultados de generación de medios para renderizar en el chat
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      try {
+        const d = (ev as CustomEvent<{ type: 'image' | 'video'; provider?: string; url: string; downloadUrl?: string; prompt?: string }>).detail;
+        if (!d || !d.url) return;
+        const label = d.type === 'video' ? '🎬 Tu video está listo' : '🖼️ Tu imagen está lista';
+        const text = `${label}${d.provider ? ` (proveedor: ${d.provider})` : ''}.`;
+        setMessages(prev => [...prev, { text, sender: 'ai', media: { type: d.type, url: d.url, downloadUrl: d.downloadUrl, provider: d.provider } }]);
+      } catch (err) {
+        console.warn('Evento arkaios.media.result inválido:', err);
+      }
+    };
+    window.addEventListener('arkaios.media.result', handler as EventListener);
+    return () => {
+      window.removeEventListener('arkaios.media.result', handler as EventListener);
+    };
+  }, []);
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
@@ -44,6 +69,53 @@ const Chat = () => {
         temporaryIndex = prev.length + 1;
         return [...prev, processingMsg];
     });
+
+    // 2.1 Detección simple de intención de generación de medios
+    const lower = userMessage.toLowerCase();
+    const wantsImage = [
+      'crear una imagen',
+      'crear imagen',
+      'genera una imagen',
+      'generar una imagen',
+      'dibuja',
+      'haz una imagen',
+      'imagen de',
+      'ilustración',
+    ].some((p) => lower.includes(p));
+    const wantsVideo = [
+      'crear un video',
+      'crear video',
+      'genera un video',
+      'generar un video',
+      'animación',
+      'clip de',
+    ].some((p) => lower.includes(p));
+
+    if (wantsImage || wantsVideo) {
+      // Reemplazar mensaje de procesamiento con confirmación de enrutamiento
+      setMessages(prev => prev.map((msg, index) => 
+        index === temporaryIndex
+          ? { ...msg, text: `🎨 Detecté intención de ${wantsImage ? 'imagen' : 'video'}. Activando el módulo "Generar medios" con tu prompt.` }
+          : msg
+      ));
+
+      // Enviar evento al panel de generación de medios para autocompletar y ejecutar
+      try {
+        const detail = {
+          prompt: userMessage,
+          type: wantsImage ? 'image' as const : 'video' as const,
+          // Usamos proveedor libre por defecto para imagen; video usa Luma si está configurado
+          provider: wantsImage ? 'pollinations' : 'luma',
+          auto: true,
+        };
+        window.dispatchEvent(new CustomEvent('arkaios.media.prompt', { detail }));
+      } catch (err) {
+        console.error('No se pudo despachar evento de media:', err);
+      }
+
+      setIsLoading(false);
+      return; // No llamar al núcleo de chat para estos casos
+    }
 
     try {
       // 3. Llama a la ruta de Express que hemos creado (/api/chat)
@@ -96,7 +168,43 @@ const Chat = () => {
                 : 'mr-auto bg-gray-700 text-gray-100 border border-teal-500/30'
             }`}
           >
-            {msg.text}
+            <div className="mb-2 whitespace-pre-wrap">{msg.text}</div>
+            {msg.media?.type === 'video' && (
+              <div className="mt-2">
+                <video src={msg.media.url} controls className="w-full rounded border border-teal-700" />
+                {msg.media.downloadUrl && (
+                  <div className="mt-2">
+                    <a
+                      href={msg.media.downloadUrl}
+                      download
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center px-3 py-2 rounded bg-teal-500 text-gray-900 hover:bg-teal-400"
+                    >
+                      Descargar video
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+            {msg.media?.type === 'image' && (
+              <div className="mt-2">
+                <img src={msg.media.url} className="max-w-full rounded border border-teal-700" />
+                {msg.media.downloadUrl && (
+                  <div className="mt-2">
+                    <a
+                      href={msg.media.downloadUrl}
+                      download
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center px-3 py-2 rounded bg-teal-500 text-gray-900 hover:bg-teal-400"
+                    >
+                      Descargar imagen
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
         {/* Elemento vacío para hacer scroll */}

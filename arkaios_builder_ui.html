@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ARKAIOS - IA Integrada (Puter primero + Exportación de archivos)</title>
+  <title>ARKAIOS - IA Integrada (Servicio de IA + Exportación de archivos)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -38,7 +38,7 @@
     .gallery{display:grid;gap:10px}
     .gal-item{display:grid;grid-template-columns:48px 1fr;gap:10px;align-items:center;padding:8px;border:1px solid #103140;border-radius:12px;background:#0a1a21}
     .gal-item img{width:48px;height:48px;object-fit:cover;border-radius:10px}
-    .model-selector{padding:6px 10px;border:1px solid #103140;border-radius:8px;background:#081a20;color:var(--text);font-size:12px}
+    .model-selector{padding:6px 10px;border:1px solid #103140;border-radius:8px;background:#081a20;color:var(--text);font-size:12px;display:none}
     .attachment-preview{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
     .attachment-item{position:relative;border:1px solid #103140;border-radius:8px;padding:4px;background:#081a20}
     .attachment-item img{max-width:80px;max-height:80px;object-fit:cover;border-radius:4px}
@@ -58,10 +58,10 @@
         <span class="title">ARKAIOS</span>
         <span class="chip connecting" id="ai-status">IA Conectando...</span>
         <select class="model-selector" id="model-selector">
-          <option value="gpt-4.1" selected>GPT-4.1 (Puter)</option>
-          <option value="gpt-4o">GPT-4o (Puter)</option>
+          <option value="gpt-4.1" selected>Modelo A</option>
+          <option value="gpt-4o">Modelo B</option>
         </select>
-        <span class="chip" id="puter-status">Puter: Iniciando</span>
+        <span class="chip" id="puter-status">Servicio de IA: Iniciando</span>
         <button class="chip logout" onclick="logout()">Salir</button>
       </div>
 
@@ -97,9 +97,9 @@
       <h3>Estado del Sistema</h3>
       <div class="gallery">
         <div class="gal-item">
-          <img src="https://picsum.photos/seed/puter/96" alt="puter">
+          <img src="https://picsum.photos/seed/puter/96" alt="sdk-ia">
           <div>
-            <div>Puter.js SDK</div>
+            <div>SDK de IA</div>
             <small id="puter-detail">Cargando...</small>
           </div>
         </div>
@@ -313,7 +313,7 @@
     // ====== Inicialización Puter ======
     async function initializePuter() {
       updateStatus('puter', 'connecting');
-      addMsg('🔄 Inicializando Puter.js...', 'system');
+      addMsg('🔄 Inicializando SDK de IA...', 'system');
       let attempts = 0;
       while (attempts < 20) {
         try {
@@ -324,13 +324,13 @@
             await testAI();
             await testFileSystem();
             addMsg('✅ Sistema ARKAIOS listo', 'system');
-            addMsg('👋 ¡Hola! Puter (GPT-4.1/4o) es la IA primaria. Usa <code>/export</code> y <code>/make</code> para crear archivos descargables.', 'ai');
+            addMsg('👋 ¡Hola! El servicio de IA es primario. Usa <code>/export</code> y <code>/make</code> para crear archivos descargables.', 'ai');
             break;
           }
         } catch (error) { console.log('Init err', error); }
         attempts++; await new Promise(r => setTimeout(r, 500));
       }
-      if (!puterReady) { updateStatus('puter','error'); addMsg('❌ No se pudo cargar Puter.js.', 'system'); }
+      if (!puterReady) { updateStatus('puter','error'); addMsg('❌ No se pudo cargar el SDK de IA.', 'system'); }
     }
 
     async function testImageGeneration() {
@@ -346,7 +346,7 @@
         let text = (typeof response==='string')? response : (response?.text || response?.message?.content || '');
         updateStatus('ai', 'ready'); aiReady = true;
         const imgOK = await testImageGeneration();
-        document.getElementById('ai-detail').textContent = `Modelo: ${model}${imgOK ? ', Imágenes: ✓' : ', Imágenes: ✗'}`;
+        document.getElementById('ai-detail').textContent = `IA verificada${imgOK ? ', Imágenes: ✓' : ', Imágenes: ✗'}`;
       } catch (error) {
         updateStatus('ai', 'error');
         document.getElementById('ai-detail').textContent = 'Error: ' + error.message;

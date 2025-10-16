@@ -37,6 +37,12 @@ export default function Lab() {
   const [activePath, setActivePath] = useState<string | null>(null);
   const [termCmd, setTermCmd] = useState<string>("");
   const [termOut, setTermOut] = useState<string>("");
+  // Terminal WebSocket interactiva
+  const [wsShell, setWsShell] = useState<string>("powershell");
+  const [wsConnected, setWsConnected] = useState<boolean>(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const [wsInput, setWsInput] = useState<string>("");
+  const [wsOut, setWsOut] = useState<string>("");
   const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [aiLog, setAiLog] = useState<string[]>([]);
@@ -775,6 +781,84 @@ export default function Lab() {
             <pre className="max-h-56 overflow-auto whitespace-pre-wrap p-2 text-xs leading-relaxed text-muted-foreground">
               {termOut || "Salida del terminal aparecerá aquí"}
             </pre>
+
+            {/* Terminal WebSocket interactiva */}
+            <div className="mt-2 border-t border-white/10">
+              <div className="flex items-center justify-between gap-2 p-2">
+                <div className="flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-muted-foreground">
+                  <TerminalIcon className="size-3" /> Terminal (WS) interactiva
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="rounded border border-white/10 bg-black/30 px-2 py-1 text-[11px]"
+                    value={wsShell}
+                    onChange={(e) => setWsShell(e.target.value)}
+                  >
+                    <option value="powershell">PowerShell</option>
+                    <option value="wsl">WSL (Ubuntu/Bash)"</option>
+                    <option value="cmd">CMD</option>
+                  </select>
+                  {wsConnected ? (
+                    <button
+                      className="rounded border border-white/10 px-3 py-1 text-xs hover:border-destructive/50 hover:text-destructive"
+                      onClick={() => {
+                        try { wsRef.current?.close(); } catch {}
+                      }}
+                    >
+                      Desconectar
+                    </button>
+                  ) : (
+                    <button
+                      className="rounded border border-white/10 px-3 py-1 text-xs hover:border-primary/50 hover:text-primary"
+                      onClick={() => {
+                        try {
+                          const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/terminal?shell=${encodeURIComponent(wsShell)}&actor=human`;
+                          const ws = new WebSocket(url);
+                          wsRef.current = ws;
+                          ws.onopen = () => setWsConnected(true);
+                          ws.onclose = () => setWsConnected(false);
+                          ws.onerror = () => setWsConnected(false);
+                          ws.onmessage = (evt) => {
+                            const data = String(evt.data || '');
+                            setWsOut((prev) => (prev + data).slice(-50000));
+                          };
+                        } catch {}
+                      }}
+                    >
+                      Conectar
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-2">
+                <input
+                  className="flex-1 rounded border border-white/10 bg-black/30 px-2 py-1 text-sm"
+                  placeholder={wsConnected ? `Escribe comandos en ${wsShell}…` : 'Conecta para enviar comandos'}
+                  value={wsInput}
+                  onChange={(e) => setWsInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      try {
+                        wsRef.current?.send(wsInput + '\r\n');
+                        setWsInput('');
+                      } catch {}
+                    }
+                  }}
+                  disabled={!wsConnected}
+                />
+                <button
+                  className="rounded border border-white/10 px-3 py-1 text-xs hover:border-primary/50 hover:text-primary disabled:opacity-50"
+                  disabled={!wsConnected || !wsInput.trim()}
+                  onClick={() => {
+                    try { wsRef.current?.send(wsInput + '\r\n'); setWsInput(''); } catch {}
+                  }}
+                >Enviar</button>
+              </div>
+              <pre className="max-h-56 overflow-auto whitespace-pre-wrap p-2 text-xs leading-relaxed text-muted-foreground">
+                {wsOut || 'Salida interactiva aparecerá aquí'}
+              </pre>
+            </div>
           </div>
         </Panel>
         <PanelResizeHandle className="w-1 bg-white/10 hover:bg-primary/40" />

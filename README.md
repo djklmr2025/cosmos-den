@@ -265,6 +265,104 @@ AEIO-MR es **completamente libre y open source** bajo la licencia MIT modificada
 
 </div>
 
+---
+
+## 🔧 Guía Rápida de API por CLI (Windows)
+
+- Arrancar entorno de desarrollo: `pnpm dev` y abre `http://127.0.0.1:8082/`.
+- Health: `curl.exe http://127.0.0.1:8082/health`.
+- Ping: `curl.exe http://127.0.0.1:8082/api/ping` devuelve `{ "message": "ping" }`.
+
+**Media: Convertir WebM a MP4**
+- Enviar conversión:
+```
+curl.exe -H "Content-Type: application/json" -d "{\"sourceUrl\":\"https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm\",\"targetFormat\":\"mp4\"}" http://127.0.0.1:8082/api/media/convert
+```
+- Descargar resultado:
+```
+curl.exe -o test-converted.mp4 "http://127.0.0.1:8082/api/media/file/<id>.mp4"
+```
+- PowerShell equivalente:
+```
+$body = @{ sourceUrl = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm'; targetFormat = 'mp4' } | ConvertTo-Json
+$r = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8082/api/media/convert -ContentType 'application/json' -Body $body
+Invoke-WebRequest -Uri ("http://127.0.0.1:8082" + $r.downloadUrl) -OutFile (Join-Path $pwd 'test-converted.mp4')
+```
+Nota: Si `ffmpeg` no está disponible, el servidor degrada a WebM y responde con `format: "webm"`.
+
+**Media: Servir archivo**
+- Descargar WebM: `curl.exe -o test.webm "http://127.0.0.1:8082/api/media/file/<id>.webm"`.
+
+**Terminal seguro (MCP alias disponible)**
+- Ejecutar un comando permitido:
+```
+curl.exe -H "Content-Type: application/json" -d "{\"cmd\":\"echo\",\"args\":[\"Hello ARKAIOS\"]}" http://127.0.0.1:8082/api/terminal/run
+```
+- Alias MCP (compatibilidad):
+```
+curl.exe -H "Content-Type: application/json" -d "{\"cmd\":\"pnpm\",\"args\":[\"-v\"]}" http://127.0.0.1:8082/mcp/tools/run
+```
+
+**Chat (Gateway)**
+- Enviar una orden/objetivo:
+```
+curl.exe -H "Content-Type: application/json" -d "{\"prompt\":\"Construye un TODO app con React+Vite y API REST simple\"}" http://127.0.0.1:8082/api/chat
+```
+
+> Consejo PowerShell: evita `&&`; usa comandos separados o `;`.
+
+---
+
+## 🛠️ Daemon (servicio en segundo plano)
+
+- Lanza un proceso que mantiene el servidor vivo y lo reinicia si cae.
+- Uso:
+```
+node scripts/arkaios-daemon.js
+```
+- Variables opcionales:
+  - `ARK_DAEMON_CMD` (por defecto `pnpm`)
+  - `ARK_DAEMON_ARGS` (por defecto `dev`)
+  - `ARK_PORT` (por defecto `8082`)
+- Logs: `data/logs/daemon.log`.
+
+Para producción, considera usar `pm2` o programar el daemon con el Programador de tareas de Windows.
+
+---
+
+## 📡 Protocolo de Órdenes para Construir Apps/Proyectos
+
+Para solicitar a ARKAIOS que desarrolle un sistema completo, envía un prompt estructurado (humano o otra IA) con:
+- Objetivo claro: qué se debe construir y para quién.
+- Restricciones: stack, licencias, seguridad, estilo, performance.
+- Entregables: archivos/paths esperados y sus funciones.
+- Endpoints/Flujos: API, rutas, estados.
+- Criterios de aceptación: pruebas mínimas, ejecución, validación.
+
+Ejemplo (incrusta como texto en `prompt`):
+```
+Objective: Build a responsive TODO app (React+Vite, TypeScript) with REST API.
+Constraints: No DB externa; usar storage local; UI minimalista.
+Deliverables:
+  - client/pages/Todo.tsx (lista, input, filter)
+  - server/routes/todo.ts (CRUD en memoria)
+Endpoints:
+  - GET /api/todo, POST /api/todo, DELETE /api/todo/:id
+Acceptance:
+  - Arranca con pnpm dev; /todo funciona; API responde.
+```
+
+Puedes llamar este flujo desde otra IA usando `/api/chat` y pasar el prompt anterior. El gateway traduce el objetivo y orquesta tareas. Para acciones locales (compilar, mover archivos, correr comandos), usa `/api/terminal/run` o su alias `/mcp/tools/run`.
+
+---
+
+## 🤝 Integración MCP y otras IAs
+
+- Usa ARKAIOS como “motor” detrás de otra IA enviando objetivos a `/api/chat`.
+- Para operaciones locales seguras, usa `/mcp/tools/run` (lista blanca de comandos) desde tu orquestador MCP.
+- Para medios (videos/imagenes), aprovecha `/api/media/*` para conversión y streaming.
+
+
 
 
 
