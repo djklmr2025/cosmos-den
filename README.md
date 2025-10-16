@@ -1,5 +1,5 @@
 Interactua con la IA viva...
-https://b14da77ac8f647cfb569163f0a93343a-main.projects.builder.my/
+https://cosmos-den.vercel.app/
 Sitio web en modo demo para creacion de archivos con codigos por tipo:
 https://arkaios-builder.base44.app/
 # 🚀 AEIO-MR: La Revolución de la IA Autónoma
