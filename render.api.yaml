@@ -3,7 +3,7 @@ services:
     name: arkaios-api-bridge
     env: node
     plan: free
-    buildCommand: corepack enable && pnpm i -w --no-frozen-lockfile && pnpm build:server
+    buildCommand: corepack enable && pnpm i --no-frozen-lockfile && pnpm build:server
     startCommand: node dist/server/node-build.mjs
     healthCheckPath: /health
     envVars:
