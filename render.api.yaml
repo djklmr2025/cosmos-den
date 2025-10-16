@@ -15,3 +15,5 @@ services:
         sync: false
       - key: ALLOW_ORIGIN
         value: "*"
+      - key: LUMA_API_KEY
+        sync: false

@@ -305,3 +305,127 @@ STDIO:
   }
 }
 ```
+
+## Generación de Imágenes y Video (ComfyUI / Luma)
+
+### Dónde usar (Chat vs Lab)
+- Modo Chat: orientado a texto/código y comandos `/make` y `/export`. No envía generaciones de imagen/video.
+- Modo Lab: usa el componente `Generador de Medios` para Imagen/Video. Aquí se integran ComfyUI (local) y Luma (remoto).
+
+### Imagen con ComfyUI (Modo Básico, desde Lab)
+- Abre el Laboratorio y selecciona `Generador de Medios`.
+- Proveedor: `ComfyUI`. Modo: `Básico`.
+- Base ComfyUI: por defecto `http://127.0.0.1:9000` (puedes cambiarlo). El servidor interno proxya hacia ComfyUI.
+- Parámetros por defecto: `steps=20`, `cfg=8`, `seed=0`, `width=768`, `height=768`, `ckpt=MODEL_NAME.ckpt`.
+- Reemplaza `ckpt` por el modelo que tengas instalado, por ejemplo: `sd_xl_base_1.0.safetensors`.
+
+Ejemplo de prompt (positivo y negativo):
+
+```
+Positivo: Retrato futurista ultra-realista de una exploradora espacial, iluminación cinematográfica, detalle en ojos y textura de traje, estilo fotorrealista, 85mm, DOF suave
+Negativo: artefactos, manos deformes, baja resolución, blur excesivo
+```
+
+Resultado: el Lab construye un workflow mínimo Texto→Imagen y lo envía al backend en `/api/comfyui/prompt`, que a su vez lo reenvía a ComfyUI y expone `jobId` para consultar estado.
+
+### Imagen con ComfyUI (Modo Avanzado, desde Lab)
+- Proveedor: `ComfyUI`. Modo: `Avanzado`.
+- Pega un workflow JSON exportado de ComfyUI. También puedes partir del siguiente ejemplo mínimo y ajustar valores:
+
+```json
+{
+  "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": "sd_xl_base_1.0.safetensors"}, "id": 1},
+  "2": {"class_type": "CLIPTextEncode", "inputs": {"text": "Retrato futurista ultra-realista de una exploradora espacial, iluminación cinematográfica, detalle en ojos y textura de traje, estilo fotorrealista, 85mm, DOF suave", "clip": ["1", 1]}, "id": 2},
+  "3": {"class_type": "CLIPTextEncode", "inputs": {"text": "artefactos, manos deformes, baja resolución, blur excesivo", "clip": ["1", 1]}, "id": 3},
+  "4": {"class_type": "EmptyLatentImage", "inputs": {"width": 768, "height": 768}, "id": 4},
+  "5": {"class_type": "KSampler", "inputs": {"seed": 0, "steps": 20, "cfg": 8, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0]}, "id": 5},
+  "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}, "id": 6},
+  "7": {"class_type": "SaveImage", "inputs": {"images": ["6", 0]}, "id": 7}
+}
+```
+
+Envío y consulta desde el Lab (automático), o vía API:
+- Envío: `POST /api/comfyui/prompt?base=http://127.0.0.1:9000` con body `{ client_id: "arkaios-ui", workflow: "<JSON>" }`.
+- Estado: `GET /api/comfyui/history/:jobId?base=http://127.0.0.1:9000` → devuelve `state` y `imageUrl`.
+- Descarga: `GET /api/comfyui/view?filename=...&type=output&subfolder=...&base=http://127.0.0.1:9000`.
+- Prueba conexión: `GET /api/comfyui/test?base=http://127.0.0.1:9000`.
+
+### Video con Luma Dream Machine (desde Lab)
+- Proveedor: `Luma`. Tipo: `Video`.
+- Requiere `LUMA_API_KEY` en el servidor.
+- Parámetros típicos: modelo `ray-2`, duración (p. ej. `5s`) y resolución (p. ej. `720p`).
+
+Ejemplo de prompt:
+```
+Una toma aérea de un dron sobre una ciudad futurista al atardecer, estilo cinematográfico, colores cálidos, movimiento suave de cámara
+```
+
+Consumo vía API (útil para automatizar fuera del Lab):
+
+```bash
+curl -X POST http://localhost:3000/api/media/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "luma",
+    "type": "video",
+    "prompt": "Una toma aérea de un dron sobre una ciudad futurista al atardecer, estilo cinematográfico, colores cálidos, movimiento suave de cámara",
+    "model": "ray-2",
+    "durationSec": 5,
+    "resolution": "720p"
+  }'
+```
+
+El backend responde con `jobId` y `generationId`. Consulta el estado con:
+
+```bash
+curl http://localhost:3000/api/media/status/<generationId>
+```
+
+### Auto-arranque de ComfyUI (Windows)
+- El Lab puede iniciar/detener ComfyUI localmente en un puerto (por defecto `9000`). Endpoints:
+  - `POST /api/comfyui/manage/start?port=9000`
+  - `GET /api/comfyui/manage/status?port=9000`
+  - `POST /api/comfyui/manage/stop?port=9000`
+- Variables de entorno en `.env` para el servidor:
+  - `COMFYUI_ROOT` → ruta al proyecto ComfyUI
+  - `COMFYUI_PYTHON` → binario de Python (ej. `python`)
+  - `COMFYUI_SCRIPT` → script principal (por defecto `main.py`)
+  - `COMFYUI_ARGS` → argumentos extra (por defecto `--listen 127.0.0.1`)
+- Nota: el proxy hacia ComfyUI usa `COMFYUI_BASE_URL` cuando no se especifica `base` en la query (por defecto `http://127.0.0.1:8188`). En el Lab puedes fijar `http://127.0.0.1:9000` si usas auto-arranque.
+
+### Resumen de uso (rápido)
+- Chat: usar `/make nombre.ext ...` y `/export nombre.ext` para archivos. No genera media.
+- Lab: seleccionar proveedor y tipo. Para ComfyUI pega prompt (Básico) o workflow JSON (Avanzado). Para Luma ingresa el prompt y parámetros.
+- API: endpoints disponibles en `/api/comfyui/*` y `/api/media/*` para automatización.
+
+## Pruebas en línea y despliegue
+
+### Subir a Git (ejemplo)
+- Configura tu remoto y sube cambios:
+
+```bash
+git init
+git add .
+git commit -m "docs: README con prompts ComfyUI/Luma y guía de despliegue"
+git branch -M main
+git remote add origin https://github.com/<usuario>/<repo>.git
+git push -u origin main
+```
+
+### Render (recomendado para backend Express)
+- Crea un Web Service en Render apuntando a este repositorio.
+- Build & Start:
+  - Build Command: `npm i && npm run build`
+  - Start Command: `npm run start`
+- Variables de entorno (Render):
+  - `LUMA_API_KEY` (obligatoria para video/imágenes remotas)
+  - `COMFYUI_BASE_URL` si proxearás a un ComfyUI accesible desde Render (normalmente ComfyUI queda local; usa el Lab para ello).
+- Health: el servicio expone `GET /health`.
+
+### Vercel (cliente estático)
+- Si sólo deseas publicar el cliente (Vite), despliega la carpeta del frontend en Vercel.
+- Para backend Express, Vercel requiere funciones serverless; en este repo se recomienda Render para el servidor.
+
+### Empaquetado .exe (Windows)
+- Consulta `docs/packaging-exe.md` para generar un instalador `.exe` con ejecución híbrida local/red.
+- Asegura configurar `COMFYUI_ROOT`, `COMFYUI_PYTHON` y claves como `LUMA_API_KEY` antes de construir.
