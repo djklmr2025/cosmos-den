@@ -4,7 +4,7 @@
   "buildCommand": "corepack enable && pnpm i --no-frozen-lockfile && pnpm build:client",
   "outputDirectory": "dist/spa",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://arkaios-api.onrender.com/$1" },
+    { "source": "/api/(.*)", "destination": "https://arkaios-api.onrender.com/api/$1" },
     { "source": "/health", "destination": "https://arkaios-gateway-open.onrender.com/aida/health" }
   ],
   "headers": [
