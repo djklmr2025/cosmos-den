@@ -826,32 +826,34 @@ export default function Lab() {
                 >delete</button>
                 <button
                   className="px-2 hover:text-primary"
-                  title="Copiar ruta (Gateway)"
+                  title="Copiar ruta"
                   onClick={async () => {
                     const src = selectedPath || '';
                     const dest = fsDestPath || '';
                     if (!src || !dest) return;
                     if (useGateway) {
                       await fetch('/api/gateway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'copy', params: { src, dest } }) });
-                      await loadDir('.');
                     } else {
-                      setTermOut((prev) => prev + `\n[copy] sólo soportado vía Gateway`);
+                      const r = await apiJson('/fs/copy', { src, dest });
+                      if (!r?.ok) setTermOut((prev) => prev + `\n[copy] error`);
                     }
+                    await loadDir('.');
                   }}
                 >copy</button>
                 <button
                   className="px-2 hover:text-primary"
-                  title="Mover ruta (Gateway)"
+                  title="Mover ruta"
                   onClick={async () => {
                     const src = selectedPath || '';
                     const dest = fsDestPath || '';
                     if (!src || !dest) return;
                     if (useGateway) {
                       await fetch('/api/gateway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'move', params: { src, dest } }) });
-                      await loadDir('.');
                     } else {
-                      setTermOut((prev) => prev + `\n[move] sólo soportado vía Gateway`);
+                      const r = await apiJson('/fs/move', { src, dest });
+                      if (!r?.ok) setTermOut((prev) => prev + `\n[move] error`);
                     }
+                    await loadDir('.');
                   }}
                 >move</button>
               </div>

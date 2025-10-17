@@ -128,3 +128,64 @@ export async function fsDelete(req: Request, res: Response) {
     res.status(400).json({ ok: false, error: e.message });
   }
 }
+
+// Copiar archivo o carpeta dentro del workspace (recursivo)
+function copyRecursiveSync(srcAbs: string, destAbs: string) {
+  const stat = fs.statSync(srcAbs);
+  if (stat.isDirectory()) {
+    fs.mkdirSync(destAbs, { recursive: true });
+    const entries = fs.readdirSync(srcAbs, { withFileTypes: true });
+    for (const e of entries) {
+      const s = path.join(srcAbs, e.name);
+      const d = path.join(destAbs, e.name);
+      if (e.isDirectory()) {
+        copyRecursiveSync(s, d);
+      } else {
+        fs.copyFileSync(s, d);
+      }
+    }
+  } else {
+    const dir = path.dirname(destAbs);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(srcAbs, destAbs);
+  }
+}
+
+export async function fsCopy(req: Request, res: Response) {
+  try {
+    const { src, dest } = req.body || {};
+    if (!src || !dest) return res.status(400).json({ ok: false, error: "Faltan 'src' y/o 'dest'" });
+    const srcAbs = resolveSafe(src);
+    const destAbs = resolveSafe(dest);
+    if (!fs.existsSync(srcAbs)) return res.status(404).json({ ok: false, error: "Origen no existe" });
+    // Seguridad: destino bajo workspace
+    if (!destAbs.startsWith(WORKSPACE)) return res.status(400).json({ ok: false, error: "Destino fuera del workspace" });
+    copyRecursiveSync(srcAbs, destAbs);
+    res.json({ ok: true, src, dest });
+  } catch (e: any) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+}
+
+export async function fsMove(req: Request, res: Response) {
+  try {
+    const { src, dest } = req.body || {};
+    if (!src || !dest) return res.status(400).json({ ok: false, error: "Faltan 'src' y/o 'dest'" });
+    const srcAbs = resolveSafe(src);
+    const destAbs = resolveSafe(dest);
+    if (!fs.existsSync(srcAbs)) return res.status(404).json({ ok: false, error: "Origen no existe" });
+    if (!destAbs.startsWith(WORKSPACE)) return res.status(400).json({ ok: false, error: "Destino fuera del workspace" });
+    const dir = path.dirname(destAbs);
+    fs.mkdirSync(dir, { recursive: true });
+    try {
+      fs.renameSync(srcAbs, destAbs);
+    } catch (err: any) {
+      // Fallback para EXDEV u otros casos: copiar y eliminar
+      copyRecursiveSync(srcAbs, destAbs);
+      fs.rmSync(srcAbs, { recursive: true, force: true });
+    }
+    res.json({ ok: true, src, dest });
+  } catch (e: any) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+}

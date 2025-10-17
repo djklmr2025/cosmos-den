@@ -6,7 +6,7 @@ import { handleAiChat } from "./routes/ai-chat";
 import { handleGateway } from "./routes/gateway";
 import { handleMediaGenerate, handleMediaStatus, handleMediaConvert, handleMediaFile } from "./routes/media";
 import { handleHealth } from "./routes/health";
-import { fsList, fsRead, fsWrite, fsMkdir, fsUpload, fsClear, fsDelete } from "./routes/fs";
+import { fsList, fsRead, fsWrite, fsMkdir, fsUpload, fsClear, fsDelete, fsCopy, fsMove } from "./routes/fs";
 import { registerMemoryRoutes } from "./routes/memory";
 import { handleTerminalRun } from "./routes/terminal";
 import { handleComfyPrompt, handleComfyHistory, handleComfyView, handleComfyTest } from "./routes/comfyui";
@@ -73,6 +73,8 @@ export function createServer() {
   app.post("/fs/upload", fsUpload);
   app.post("/fs/clear", fsClear);
   app.post("/fs/delete", fsDelete);
+  app.post("/fs/copy", fsCopy);
+  app.post("/fs/move", fsMove);
 
   // Terminal
   app.post("/api/terminal/run", handleTerminalRun);
