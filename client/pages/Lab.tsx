@@ -36,6 +36,7 @@ async function apiJson(url: string, body?: any) {
 export default function Lab() {
   const buildSha = (typeof __COMMIT_SHA__ !== "undefined" && __COMMIT_SHA__) || "";
   const buildTime = (typeof __BUILD_TIME__ !== "undefined" && __BUILD_TIME__) || "";
+  const [buildInfo, setBuildInfo] = useState<{ sha: string; time: string }>({ sha: buildSha, time: buildTime });
   const [root, setRoot] = useState<TreeItem | null>(null);
   const [loadingTree, setLoadingTree] = useState(false);
   const [tabs, setTabs] = useState<OpenTab[]>([]);
@@ -66,6 +67,21 @@ export default function Lab() {
   // Cargar el árbol raíz
   useEffect(() => {
     void loadDir(".");
+  }, []);
+
+  // Fallback: intenta leer /version.json generado en el build
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/version.json", { cache: "no-cache" });
+        if (r.ok) {
+          const j = await r.json();
+          const sha = j?.sha || buildSha;
+          const time = j?.buildTime || buildTime;
+          setBuildInfo({ sha, time });
+        }
+      } catch {}
+    })();
   }, []);
 
   const findNode = (node: TreeItem | null, path: string): TreeItem | null => {
@@ -764,9 +780,9 @@ export default function Lab() {
             Fuente: {useGateway ? "Gateway" : "Local"}
           </span>
           {/* Badge visible de versión para confirmar el commit desplegado */}
-          {buildSha || buildTime ? (
-            <span className="ml-2 rounded-full border border-white/10 px-2 py-1 text-[10px] opacity-70" title={`commit: ${buildSha} | build: ${buildTime}`}>
-              build {buildSha ? buildSha.slice(0,7) : "dev"}
+          {(buildInfo.sha || buildInfo.time) ? (
+            <span className="ml-2 rounded-full border border-white/10 px-2 py-1 text-[10px] opacity-70" title={`commit: ${buildInfo.sha} | build: ${buildInfo.time}`}>
+              build {buildInfo.sha ? buildInfo.sha.slice(0,7) : "dev"}
             </span>
           ) : null}
         </div>

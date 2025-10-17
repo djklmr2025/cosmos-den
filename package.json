@@ -18,7 +18,7 @@
     "dev": "vite",
     "dev:desktop": "concurrently -k \"pnpm dev\" \"cross-env DEV_SERVER_URL=http://localhost:8080 electron .\"",
     "build": "npm run build:client && npm run build:server",
-    "build:client": "vite build",
+    "build:client": "vite build && node scripts/write-version.mjs",
     "build:server": "vite build --config vite.config.server.ts",
     "start": "node dist/server/node-build.mjs",
     "health:vercel": "node scripts/vercel-health-check.mjs",
