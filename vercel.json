@@ -5,7 +5,8 @@
   "outputDirectory": "dist/spa",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://arkaios-api.onrender.com/api/$1" },
-    { "source": "/health", "destination": "https://arkaios-gateway-open.onrender.com/aida/health" }
+    { "source": "/health", "destination": "https://arkaios-gateway-open.onrender.com/aida/health" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
