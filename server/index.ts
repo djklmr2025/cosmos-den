@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
 import { handleAiChat } from "./routes/ai-chat";
+import { handleGateway } from "./routes/gateway";
 import { handleMediaGenerate, handleMediaStatus, handleMediaConvert, handleMediaFile } from "./routes/media";
 import { handleHealth } from "./routes/health";
 import { fsList, fsRead, fsWrite, fsMkdir, fsUpload, fsClear, fsDelete } from "./routes/fs";
@@ -30,6 +31,12 @@ export function createServer() {
 
   // Chat AI (Gateway)
   app.post("/api/chat", handleAiChat);
+  // Gateway directo (herramientas/FS)
+  app.post("/api/gateway", handleGateway);
+  // Salud del Gateway (diagnóstico rápido)
+  app.get("/api/gateway/_alive", (_req, res) => {
+    res.json({ ok: true, route: "/api/gateway", method: "POST" });
+  });
 
   // Media (Imagen/Video) vía Luma API
   app.post("/api/media/generate", handleMediaGenerate);

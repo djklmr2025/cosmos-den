@@ -1,0 +1,42 @@
+# Excluir archivos y carpetas pesadas o innecesarias para el deploy
+
+# Entornos y dependencias locales
+.venv/
+node_modules/
+.vscode/
+__pycache__/
+
+# Laboratorios y backups (no necesarios para front-end static)
+builderOS_Lab/
+arkaios-lab-starter/
+backup_restore_stage/
+
+# Datos y medios pesados
+data/workspace/media/
+
+# Videos y archivos grandes
+*.mp4
+*.webm
+*.avi
+*.mov
+*.zip
+*.tar
+*.gz
+*.7z
+*.iso
+*.dmg
+*.exe
+
+# Archivos puntuales grandes
+test-converted.mp4
+flower.webm
+
+# Código del servidor (no requerido para SPA estática)
+server/
+scripts/
+server_arkaios_new.py
+arkaios_ai_brain_real.py
+arkaios_builder_mode.py
+arkaios_executor.py
+arkaios_file_manager.py
+arkaios_voice.js

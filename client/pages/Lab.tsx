@@ -47,6 +47,8 @@ export default function Lab() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [aiLog, setAiLog] = useState<string[]>([]);
   const [connectedRoot, setConnectedRoot] = useState<string | null>(null);
+  // Fuente de operaciones: Local por defecto o Gateway remoto
+  const [useGateway, setUseGateway] = useState<boolean>(false);
   const logAi = (msg: string) => {
     const ts = new Date();
     const hh = ts.toLocaleTimeString();
@@ -73,14 +75,34 @@ export default function Lab() {
   async function loadDir(relPath: string) {
     try {
       setLoadingTree(true);
-      const data = await apiJson("/fs/list", { path: relPath });
-      if (!data?.ok) throw new Error(data?.error || "Error listando directorio");
-      const items: TreeItem[] = (data.items || []).map((it: any) => ({
-        name: it.name,
-        path: it.path,
-        type: it.type,
-        children: it.type === "dir" ? [] : undefined,
-      }));
+      let items: TreeItem[] = [];
+      if (!useGateway) {
+        const data = await apiJson("/fs/list", { path: relPath });
+        if (!data?.ok) throw new Error(data?.error || "Error listando directorio");
+        items = (data.items || []).map((it: any) => ({
+          name: it.name,
+          path: it.path,
+          type: it.type,
+          children: it.type === "dir" ? [] : undefined,
+        }));
+      } else {
+        const r = await fetch("/api/gateway", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "list", params: { path: relPath } }),
+        });
+        const j = await r.json();
+        const raw = j?.reply ?? j;
+        let arr: any = raw;
+        try { arr = typeof raw === "string" ? JSON.parse(raw) : raw; } catch {}
+        const list: any[] = Array.isArray(arr) ? arr : Array.isArray(arr?.items) ? arr.items : [];
+        items = list.map((it: any) => ({
+          name: it.name ?? it.path ?? String(it),
+          path: relPath === "." ? (it.path ?? it.name ?? String(it)) : `${relPath}/${it.name ?? it.path ?? String(it)}`,
+          type: (it.type === "dir" || it.type === "file") ? it.type : (it.children ? "dir" : "file"),
+          children: undefined,
+        }));
+      }
       if (relPath === ".") {
         setRoot({ name: "workspace", path: ".", type: "dir", children: items, expanded: true });
       } else {
@@ -117,13 +139,27 @@ export default function Lab() {
   }
 
   async function openFile(path: string) {
-    const data = await apiJson("/fs/read", { path });
-    if (!data?.ok) return;
+    let content = "";
+    if (!useGateway) {
+      const data = await apiJson("/fs/read", { path });
+      if (!data?.ok) return;
+      content = data.content || "";
+    } else {
+      const r = await fetch("/api/gateway", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "read", params: { path } }),
+      });
+      const j = await r.json();
+      const raw = j?.reply ?? j;
+      try { content = typeof raw === "string" ? raw : JSON.stringify(raw); } catch { content = String(raw); }
+    }
     const existing = tabs.find((t) => t.path === path);
     if (existing) {
       setActivePath(path);
+      setTabs((prev) => prev.map((t) => t.path === path ? { ...t, content, dirty: false } : t));
     } else {
-      const tab: OpenTab = { path, content: data.content || "", dirty: false };
+      const tab: OpenTab = { path, content, dirty: false };
       setTabs((prev) => [...prev, tab]);
       setActivePath(path);
     }
@@ -139,9 +175,21 @@ export default function Lab() {
     if (!activePath) return;
     const tab = tabs.find((t) => t.path === activePath);
     if (!tab) return;
-    const res = await apiJson("/fs/write", { path: tab.path, content: tab.content });
-    if (res?.ok) {
-      setTabs((prev) => prev.map((t) => (t.path === tab.path ? { ...t, dirty: false } : t)));
+    if (!useGateway) {
+      const res = await apiJson("/fs/write", { path: tab.path, content: tab.content });
+      if (res?.ok) {
+        setTabs((prev) => prev.map((t) => (t.path === tab.path ? { ...t, dirty: false } : t)));
+      }
+    } else {
+      const r = await fetch("/api/gateway", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "write", params: { path: tab.path, content: tab.content } }),
+      });
+      // Considerar cualquier 200 como éxito
+      if (r.ok) {
+        setTabs((prev) => prev.map((t) => (t.path === tab.path ? { ...t, dirty: false } : t)));
+      }
     }
   }
 
@@ -342,6 +390,55 @@ export default function Lab() {
   const [compactSending, setCompactSending] = useState(false);
   const [includeFileContext, setIncludeFileContext] = useState(true);
   const [compactResult, setCompactResult] = useState<{action?: string; path?: string; content?: string} | null>(null);
+
+  // Panel Gateway: acciones directas vía /api/gateway
+  type GatewayAction = "list" | "read" | "write" | "delete" | "mkdir" | "copy" | "move";
+  const [gwAction, setGwAction] = useState<GatewayAction>("list");
+  const [gwParamsText, setGwParamsText] = useState<string>("{\n  \"path\": \".\"\n}");
+  const [gwLoading, setGwLoading] = useState<boolean>(false);
+  const [gwError, setGwError] = useState<string>("");
+  const [gwResult, setGwResult] = useState<any>(null);
+  function safeJsonParse<T = any>(txt: string): T | string {
+    try { return JSON.parse(txt); } catch { return txt; }
+  }
+  async function runGatewayOnce(action: string, params: any) {
+    const res = await fetch("/api/gateway", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, params }),
+    });
+    const data = await res.json();
+    const raw = data?.reply ?? data;
+    const parsed = typeof raw === "string" ? safeJsonParse(raw) : raw;
+    return { status: data?.status ?? res.status, data: parsed };
+  }
+  async function runGateway() {
+    setGwLoading(true);
+    setGwError("");
+    setGwResult(null);
+    const params = safeJsonParse(gwParamsText);
+    if (typeof params === "string") {
+      setGwError("Params no es JSON válido");
+      setGwLoading(false);
+      return;
+    }
+    // reintentos simples con backoff
+    const attempts = [0, 250, 750];
+    let lastErr: any = null;
+    for (const delay of attempts) {
+      try {
+        if (delay) await new Promise((r) => setTimeout(r, delay));
+        const r = await runGatewayOnce(gwAction, params);
+        setGwResult(r.data);
+        setGwLoading(false);
+        return;
+      } catch (e: any) {
+        lastErr = e;
+      }
+    }
+    setGwError(lastErr?.message || "Error ejecutando acción");
+    setGwLoading(false);
+  }
 
   function parseCompactCommand(text: string) {
     const t = text.toLowerCase();
@@ -596,6 +693,9 @@ export default function Lab() {
           <Link to="/" className="transition hover:text-primary">Inicio</Link>
           <span className="opacity-60">/</span>
           <span>Lab</span>
+          <span className="ml-2 rounded-full border border-white/10 px-2 py-1 text-[10px]">
+            Fuente: {useGateway ? "Gateway" : "Local"}
+          </span>
         </div>
       </div>
       {/* Paneles horizontales: Árbol (izquierda), Editor+Terminal (centro), Chat (derecha) */}
@@ -604,9 +704,20 @@ export default function Lab() {
         <Panel defaultSize={22} minSize={18} className="flex flex-col">
           <div className="flex items-center justify-between border-b border-white/10 p-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.4em] text-muted-foreground">
-              <Folder className="size-3" /> Árbol
+              <Folder className="size-3" /> Árbol ({useGateway ? "Gateway" : "Local"})
             </div>
             <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-xs">
+                <button
+                  className={cn("px-2", !useGateway ? "text-primary" : "text-muted-foreground")}
+                  onClick={() => { setUseGateway(false); void loadDir("."); }}
+                >Local</button>
+                <span className="opacity-50">|</span>
+                <button
+                  className={cn("px-2", useGateway ? "text-primary" : "text-muted-foreground")}
+                  onClick={() => { setUseGateway(true); void loadDir("."); }}
+                >Gateway</button>
+              </div>
               <label className="flex cursor-pointer items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-xs hover:border-primary/50 hover:text-primary" title="Subir archivo al workspace">
                 <input type="file" className="hidden" onChange={handleUpload} />
                 Upload files
@@ -781,6 +892,51 @@ export default function Lab() {
             <pre className="max-h-56 overflow-auto whitespace-pre-wrap p-2 text-xs leading-relaxed text-muted-foreground">
               {termOut || "Salida del terminal aparecerá aquí"}
             </pre>
+
+            {/* Gateway Actions */}
+            <div className="mt-2 border-t border-white/10">
+              <div className="flex items-center justify-between gap-2 p-2">
+                <div className="flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-muted-foreground">
+                  <Folder className="size-3" /> Gateway (FS remoto)
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="rounded border border-white/10 bg-black/30 px-2 py-1 text-[11px]"
+                    value={gwAction}
+                    onChange={(e) => setGwAction(e.target.value as any)}
+                  >
+                    <option value="list">list</option>
+                    <option value="read">read</option>
+                    <option value="write">write</option>
+                    <option value="delete">delete</option>
+                    <option value="mkdir">mkdir</option>
+                    <option value="copy">copy</option>
+                    <option value="move">move</option>
+                  </select>
+                  <button
+                    className="rounded border border-white/10 px-3 py-1 text-xs hover:border-primary/50 hover:text-primary disabled:opacity-50"
+                    disabled={gwLoading}
+                    onClick={runGateway}
+                  >
+                    {gwLoading ? 'Ejecutando…' : 'Ejecutar'}
+                  </button>
+                </div>
+              </div>
+              <div className="p-2">
+                <textarea
+                  className="h-20 w-full rounded border border-white/10 bg-black/30 px-2 py-1 text-xs"
+                  value={gwParamsText}
+                  onChange={(e) => setGwParamsText(e.target.value)}
+                  placeholder={'JSON params, p.ej. {"path":"."}'}
+                />
+                {gwError ? (
+                  <p className="mt-1 text-[11px] text-destructive">{gwError}</p>
+                ) : null}
+                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-white/10 p-2 text-[11px] text-muted-foreground">
+                  {gwResult ? JSON.stringify(gwResult, null, 2) : 'Resultado aparecerá aquí'}
+                </pre>
+              </div>
+            </div>
 
             {/* Terminal WebSocket interactiva */}
             <div className="mt-2 border-t border-white/10">

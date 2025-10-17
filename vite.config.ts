@@ -1,7 +1,7 @@
 import { defineConfig, Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { createServer } from "./server";
+import { pathToFileURL } from "url";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -37,11 +37,18 @@ function expressPlugin(): Plugin {
   return {
     name: "express-plugin",
     apply: "serve", // Only apply during development (serve mode)
-    configureServer(server) {
-      const app = createServer();
+    async configureServer(server) {
+      try {
+        const serverEntry = path.resolve(process.cwd(), "server/index.ts");
+        const serverUrl = pathToFileURL(serverEntry).href;
+        const { createServer } = await import(serverUrl) as { createServer: () => any };
+        const app = createServer();
 
-      // Add Express app as middleware to Vite dev server
-      server.middlewares.use(app);
+        // Add Express app as middleware to Vite dev server
+        server.middlewares.use(app);
+      } catch (err: any) {
+        console.warn(`[express-plugin] Skipping local Express integration: ${err?.message ?? err}`);
+      }
     },
   };
 }

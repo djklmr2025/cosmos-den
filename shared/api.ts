@@ -19,6 +19,10 @@ export interface ChatRequest {
   prompt: string;
   /** Contexto opcional (metadata estructurada que el gateway/IA puede usar) */
   context?: Record<string, any>;
+  /** Acción opcional soportada por el gateway (echo, generate, etc.) */
+  action?: string;
+  /** Parámetros opcionales específicos de la acción */
+  params?: Record<string, any>;
 }
 
 export interface ChatResponse {

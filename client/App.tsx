@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import Workbench from "./pages/Workbench";
 import Lab from "./pages/Lab";
 import Todo from "./pages/Todo";
+import GatewayPage from "./pages/Gateway";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/workbench" element={<Workbench />} />
           <Route path="/xr" element={<XR />} />
           <Route path="/lab" element={<Lab />} />
+          <Route path="/gateway" element={<GatewayPage />} />
           <Route path="/todo" element={<Todo />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

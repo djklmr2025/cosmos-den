@@ -40,3 +40,5 @@ data/memory.json
 
 # Temporary worker zips
 tmp_worker_zip*/
+
+.vercel
