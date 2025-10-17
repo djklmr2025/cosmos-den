@@ -42,3 +42,6 @@ data/memory.json
 tmp_worker_zip*/
 
 .vercel
+
+# Ignorar entorno y modelos de ComfyUI (muy pesados)
+ComfyUI/

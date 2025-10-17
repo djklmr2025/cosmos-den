@@ -49,6 +49,9 @@ export default function Lab() {
   const [connectedRoot, setConnectedRoot] = useState<string | null>(null);
   // Fuente de operaciones: Local por defecto o Gateway remoto
   const [useGateway, setUseGateway] = useState<boolean>(false);
+  // Selección en árbol y destino para acciones rápidas
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [fsDestPath, setFsDestPath] = useState<string>("");
   const logAi = (msg: string) => {
     const ts = new Date();
     const hh = ts.toLocaleTimeString();
@@ -206,21 +209,51 @@ export default function Lab() {
       const file = e.target.files?.[0];
       if (!file) return;
       logAi(`Upload: ${file.name}`);
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8 = new Uint8Array(arrayBuffer);
-      let binary = "";
-      for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
-      const contentBase64 = btoa(binary);
       const destDir = "uploads"; // carpeta por defecto dentro del workspace
-      const res = await apiJson("/fs/upload", {
-        path: destDir,
-        filename: file.name,
-        contentBase64,
-      });
-      if (res?.ok) {
-        await loadDir(".");
-        setTermOut((prev) => prev + `\n[upload] ${file.name} -> ${destDir}/`);
-        logAi(`Upload completado: ${file.name}`);
+      if (!useGateway) {
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+        let binary = "";
+        for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+        const contentBase64 = btoa(binary);
+        const res = await apiJson("/fs/upload", {
+          path: destDir,
+          filename: file.name,
+          contentBase64,
+        });
+        if (res?.ok) {
+          await loadDir(".");
+          setTermOut((prev) => prev + `\n[upload] ${file.name} -> ${destDir}/`);
+          logAi(`Upload completado: ${file.name}`);
+        }
+      } else {
+        // En Gateway no existe 'upload'; usamos 'write'. Si es texto, enviamos UTF-8; si no, base64
+        const isText = file.type.startsWith("text") || file.type === "application/json" || /\.(txt|md|json)$/i.test(file.name);
+        let content: string = "";
+        let encoding: "utf8" | "base64" = "utf8";
+        if (isText) {
+          content = await file.text();
+          encoding = "utf8";
+        } else {
+          const arr = await file.arrayBuffer();
+          const b64 = btoa(String.fromCharCode(...new Uint8Array(arr)));
+          content = b64;
+          encoding = "base64";
+        }
+        const destPath = `${destDir}/${file.name}`;
+        const r = await fetch("/api/gateway", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "write", params: { path: destPath, content, encoding } }),
+        });
+        if (r.ok) {
+          await loadDir(".");
+          setTermOut((prev) => prev + `\n[gateway upload] ${file.name} -> ${destDir}/`);
+          logAi(`Gateway upload completado: ${file.name}`);
+        } else {
+          const txt = await r.text().catch(() => "");
+          throw new Error(txt || "Error en gateway write");
+        }
       }
       e.target.value = ""; // reset input
     } catch (err: any) {
@@ -231,8 +264,30 @@ export default function Lab() {
 
   async function clearWorkspace() {
     try {
-      const resp = await apiJson('/fs/clear', { confirm: true });
-      if (!resp?.ok) throw new Error(resp?.error || 'No se pudo vaciar el workspace');
+      if (!useGateway) {
+        const resp = await apiJson('/fs/clear', { confirm: true });
+        if (!resp?.ok) throw new Error(resp?.error || 'No se pudo vaciar el workspace');
+      } else {
+        // En Gateway: list + delete
+        const listRes = await fetch('/api/gateway', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'list', params: { path: '.' } }),
+        });
+        const j = await listRes.json();
+        const raw = j?.reply ?? j;
+        let arr: any = raw;
+        try { arr = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch {}
+        const items: any[] = Array.isArray(arr) ? arr : Array.isArray(arr?.items) ? arr.items : [];
+        for (const it of items) {
+          const p = it?.path ?? it?.name ?? String(it);
+          await fetch('/api/gateway', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', params: { path: p } }),
+          });
+        }
+      }
       setTabs([]);
       setActivePath(null);
       setTermOut((prev) => prev + "\n[workspace] Vacío: se eliminaron todos los archivos.");
@@ -365,8 +420,15 @@ export default function Lab() {
             <FileText className="size-3 text-muted-foreground" />
           )}
           <button
-            className={cn("truncate text-left", node.type === "file" && "hover:text-primary")}
-            onClick={() => (node.type === "file" ? openFile(node.path) : toggleDir(node))}
+            className={cn(
+              "truncate text-left",
+              node.type === "file" && "hover:text-primary",
+              selectedPath === node.path && "text-primary"
+            )}
+            onClick={() => {
+              setSelectedPath(node.path);
+              (node.type === "file" ? openFile(node.path) : toggleDir(node));
+            }}
             title={node.path}
           >
             {node.name}
@@ -717,6 +779,81 @@ export default function Lab() {
                   className={cn("px-2", useGateway ? "text-primary" : "text-muted-foreground")}
                   onClick={() => { setUseGateway(true); void loadDir("."); }}
                 >Gateway</button>
+              </div>
+              {/* Acciones rápidas FS */}
+              <div className="flex items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-xs">
+                <input
+                  className="bg-transparent outline-none placeholder:text-muted-foreground/60"
+                  placeholder="ruta"
+                  value={selectedPath ?? ""}
+                  onChange={(e) => setSelectedPath(e.target.value)}
+                />
+                <span className="opacity-50">→</span>
+                <input
+                  className="bg-transparent outline-none placeholder:text-muted-foreground/60"
+                  placeholder="destino"
+                  value={fsDestPath}
+                  onChange={(e) => setFsDestPath(e.target.value)}
+                />
+                <button
+                  className="px-2 hover:text-primary"
+                  title="Nueva carpeta"
+                  onClick={async () => {
+                    const p = selectedPath || "new-folder";
+                    if (!useGateway) {
+                      const r = await apiJson('/fs/mkdir', { path: p });
+                      if (!r?.ok) setTermOut((prev) => prev + `\n[mkdir] error`);
+                    } else {
+                      await fetch('/api/gateway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mkdir', params: { path: p } }) });
+                    }
+                    await loadDir('.');
+                  }}
+                >mkdir</button>
+                <button
+                  className="px-2 hover:text-primary"
+                  title="Borrar ruta"
+                  onClick={async () => {
+                    const p = selectedPath || '';
+                    if (!p) return;
+                    if (!useGateway) {
+                      const r = await apiJson('/fs/delete', { path: p });
+                      if (!r?.ok) setTermOut((prev) => prev + `\n[delete] error`);
+                    } else {
+                      await fetch('/api/gateway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', params: { path: p } }) });
+                    }
+                    await loadDir('.');
+                  }}
+                >delete</button>
+                <button
+                  className="px-2 hover:text-primary"
+                  title="Copiar ruta (Gateway)"
+                  onClick={async () => {
+                    const src = selectedPath || '';
+                    const dest = fsDestPath || '';
+                    if (!src || !dest) return;
+                    if (useGateway) {
+                      await fetch('/api/gateway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'copy', params: { src, dest } }) });
+                      await loadDir('.');
+                    } else {
+                      setTermOut((prev) => prev + `\n[copy] sólo soportado vía Gateway`);
+                    }
+                  }}
+                >copy</button>
+                <button
+                  className="px-2 hover:text-primary"
+                  title="Mover ruta (Gateway)"
+                  onClick={async () => {
+                    const src = selectedPath || '';
+                    const dest = fsDestPath || '';
+                    if (!src || !dest) return;
+                    if (useGateway) {
+                      await fetch('/api/gateway', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'move', params: { src, dest } }) });
+                      await loadDir('.');
+                    } else {
+                      setTermOut((prev) => prev + `\n[move] sólo soportado vía Gateway`);
+                    }
+                  }}
+                >move</button>
               </div>
               <label className="flex cursor-pointer items-center gap-1 rounded-full border border-white/10 px-2 py-1 text-xs hover:border-primary/50 hover:text-primary" title="Subir archivo al workspace">
                 <input type="file" className="hidden" onChange={handleUpload} />
