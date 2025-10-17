@@ -6,6 +6,9 @@ import { cn } from "@/lib/utils";
 import { Folder, FileText, RefreshCw, Save, Terminal as TerminalIcon, ChevronRight, ChevronDown, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 // Chat deshabilitado en el panel derecho del Lab por usabilidad
+// Sello de build para verificar despliegues en Vercel
+declare const __COMMIT_SHA__: string;
+declare const __BUILD_TIME__: string;
 
 type TreeItem = {
   name: string;
@@ -31,6 +34,8 @@ async function apiJson(url: string, body?: any) {
 }
 
 export default function Lab() {
+  const buildSha = (typeof __COMMIT_SHA__ !== "undefined" && __COMMIT_SHA__) || "";
+  const buildTime = (typeof __BUILD_TIME__ !== "undefined" && __BUILD_TIME__) || "";
   const [root, setRoot] = useState<TreeItem | null>(null);
   const [loadingTree, setLoadingTree] = useState(false);
   const [tabs, setTabs] = useState<OpenTab[]>([]);
@@ -758,6 +763,12 @@ export default function Lab() {
           <span className="ml-2 rounded-full border border-white/10 px-2 py-1 text-[10px]">
             Fuente: {useGateway ? "Gateway" : "Local"}
           </span>
+          {/* Badge visible de versión para confirmar el commit desplegado */}
+          {buildSha || buildTime ? (
+            <span className="ml-2 rounded-full border border-white/10 px-2 py-1 text-[10px] opacity-70" title={`commit: ${buildSha} | build: ${buildTime}`}>
+              build {buildSha ? buildSha.slice(0,7) : "dev"}
+            </span>
+          ) : null}
         </div>
       </div>
       {/* Paneles horizontales: Árbol (izquierda), Editor+Terminal (centro), Chat (derecha) */}
