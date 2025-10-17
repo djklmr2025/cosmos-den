@@ -33,7 +33,10 @@ flower.webm
 
 # Código del servidor (no requerido para SPA estática)
 server/
-scripts/
+# scripts/ estaba bloqueado, pero necesitamos incluir el script de versión
+# Ignorar todo scripts excepto el generador de versión
+scripts/**
+!scripts/write-version.cjs
 server_arkaios_new.py
 arkaios_ai_brain_real.py
 arkaios_builder_mode.py
