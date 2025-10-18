@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-2025.1-blue?style=for-the-badge)](releases)
 
-**[🚀 IA en Vivo](https://cosmos-den.vercel.app/)** | **[🛠️ Builder Demo](https://arkaios-builder.base44.app/)**
+**[🚀 IA en Vivo](https://cosmos-den.vercel.app/)** | **[🛠️ Builder Web](https://arkaios-builder-copy-b520aaf0.base44.app/)**
 
 </div>
 
