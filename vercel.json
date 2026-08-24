@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    { "src": "/api/fallback/chat", "dest": "/api/fallback/chat.js" },
+    { "src": "/api/chat", "dest": "/api/chat.js" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
